@@ -1,0 +1,47 @@
+export: jsonpeg
+import: json_impl
+root(handle_root):
+    value+
+token:
+    whitespace \ string \ keyword_value \ number \ punctuator // whitespace is skipped anyway
+punctuator:
+    ',', '{', '}', '[', ']', ':'
+
+keyword:
+    'true' , 'false' , 'null'
+
+keyword_value:
+    'true' \ 'false' \ 'null'
+
+value:
+    object \ array \ keyword_value \ string \ number
+
+whitespace(skip_token):
+    "\s+"
+
+object:
+    '{', members?, '}'
+
+members:
+    ','.member
+
+member:
+    string, ':', value
+
+array:
+    '[', elements?, ']'
+
+elements:
+    ','.value
+
+string:
+    "\"(((?<=\\\\)\")|[^\"])*\"" // allows escaped double quotes and accounts for characters production
+
+int_constant:
+    "[-+]?(([1-9]\d*)|(0(x|X)[A-Fa-f0-9]+)|(0[0-7]*))"
+
+decimal_float_constant:
+    "[-+]?((((\d*\.\d+)|(\d+\.))([eE][-+]?\d+)?)|(\d+[eE][-+]?\d+))"
+
+number:
+    int_constant | decimal_float_constant

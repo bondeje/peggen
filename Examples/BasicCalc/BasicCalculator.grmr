@@ -1,0 +1,64 @@
+export: BasicCalculator
+import: BasicCalculator_impl
+
+root(run_basic_calculator):
+    expression
+
+token:
+    punctuator | number | whitespace
+
+whitespace(skip_token):
+    "\s+"
+
+punctuator:
+    '+', '-', '/', '*', '^', '(', ')', '%'
+
+add_sub_expression:
+    mul_div_mod_expression, (unary_operator, mul_div_mod_expression)*
+
+mul_div_mod_expression:
+    power_expression, ((multiply | divide | mod), power_expression)*
+
+// note: to get same binding as python, need to expand the first unary_expression in a hacky way
+power_expression:
+    unary_expression, (power, unary_expression)*
+
+evaluated_expression:
+    number | '(', expression, ')'
+
+// function calls would go here
+unary_expression:
+    unary_operator*, evaluated_expression
+
+unary_operator:
+    add | subtract
+
+expression:
+    add_sub_expression
+
+add:
+    '+'
+
+subtract:
+    '-'
+
+divide:
+    '/'
+
+multiply:
+    '*'
+
+power:
+    '^'
+
+mod:
+    '%'
+
+number:
+    integer | float
+
+integer:
+    "([1-9]\d*)|0"
+
+float:
+    "((((\d*\.\d+)|(\d+\.))([eE][-+]?\d+)?)|(\d+[eE][-+]?\d+))"
