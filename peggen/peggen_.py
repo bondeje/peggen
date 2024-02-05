@@ -186,14 +186,11 @@ class Token:
         self.end = end
         self.line = line
         self.col = col
-        self._hash = None
-        self.rehash()
+        self._hash = hash((id(self.string), self.end))
     def __len__(self):
         return self.end - self.start
     def coords(self):
         return self.line, self.col
-    def rehash(self):
-        self._hash = hash((id(self.string), self.end))
     def __hash__(self):
         return self._hash
     def __str__(self):
@@ -1044,14 +1041,11 @@ class Parser:
         return line, col
     def _gen_final_token(self, node):
         final_token = self.tokens[-1]
-        new_token = copy.copy(final_token)
+        end = final_token.end
         final_token.end = final_token.start + node.length
-        new_token.start = final_token.end
+        start = final_token.end
         line, col = self._get_line_col_end(final_token)
-        new_token.line = line
-        new_token.col = col
-        new_token.rehash()
-        return new_token
+        return Token(final_token.string, start, end, line, col)
     def skip_token(self, node):
         new_token = self._gen_final_token(node)
         self.tokens.pop()
