@@ -186,11 +186,14 @@ class Token:
         self.end = end
         self.line = line
         self.col = col
-        self._hash = hash((id(self.string), self.end))
+        self._hash = None
+        self.rehash()
     def __len__(self):
         return self.end - self.start
     def coords(self):
         return self.line, self.col
+    def rehash(self):
+        self._hash = hash((id(self.string), self.end))
     def __hash__(self):
         return self._hash
     def __str__(self):
@@ -265,6 +268,9 @@ class Rule:
             res = self._cache[token]
             parser.seek(res.ntokens, SEEK_CUR) # this works even for FAIL_NODE since ntokens must be 0
         return res
+    def clear_cache(self, token):
+        if token in self._cache:
+            self._cache.pop(token)
     def _check_rule(self, parser, token_key, disable_cache_check = False):
         raise NotImplementedError(f"rule did not overload _check_rule(parser, token_key) for id {self._id}, type={type(self)}")
     def check(self, parser, disable_cache_check = False):
@@ -289,6 +295,11 @@ class ChainedRule(Rule):
     def __init__(self, terms_nonterms, _id = None):
         super().__init__(_id)
         self.terms_nonterms = terms_nonterms
+    def clear_cache(self, token):
+        if token in self._cache:
+            self._cache.pop(token)
+            for t in self.terms_nonterms:
+                t.clear_cache(token)
     
 class And(ChainedRule):
     def __init__(self, terms_nonterms, _id = None):
@@ -413,6 +424,10 @@ class DerivedRule(Rule):
     def __init__(self, rule):
         super().__init__(f"{self.INDICATOR}{rule}")
         self.rule = rule
+    def clear_cache(self, token):
+        if token in self._cache:
+            self._cache.pop(token)
+            self.rule.clear_cache(token)
 
 class List(DerivedRule):
     INDICATOR = '.'
@@ -442,6 +457,11 @@ class List(DerivedRule):
             node_list.append(node)
         token_cur = parser.tell()
         return Node(self, token_key, token_cur - token_key, parser[token_cur].start - parser[token_key].start, node_list)
+    def clear_cache(self, token):
+        if token in self._cache:
+            self._cache.pop(token)
+            self.delim.clear_cache(token)
+            self.rule.clear_cache(token)
 
 class Repeat(DerivedRule):
     __slots__ = ("min_rep", "max_rep")
@@ -1030,6 +1050,7 @@ class Parser:
         line, col = self._get_line_col_end(final_token)
         new_token.line = line
         new_token.col = col
+        new_token.rehash()
         return new_token
     def skip_token(self, node):
         new_token = self._gen_final_token(node)
@@ -1086,3 +1107,14 @@ class Parser:
         self.ast = self.root_rule.check(self)
         if self.ast is FAIL_NODE:
             print("parsing failed", self.longest_rule, self.longest_loc, repr(str(self.tokens[-1])))
+
+        # recursively clear caches to reclaim memory
+        for token in self.tokens:
+            self.root_rule.clear_cache(token)
+            self.token_rule.clear_cache(token)
+    def check_cache(self, rule):
+        cache_loc = (rule, self.tell())
+        if cache_loc in self._cache:
+            res = self._cache[cache_loc]
+            self.seek(res.ntokens, SEEK_CUR) # this works even for FAIL_NODE since ntokens must be 0
+        return res
