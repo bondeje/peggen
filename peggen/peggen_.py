@@ -547,8 +547,7 @@ class ParserGenerator:
                           PGEN_STATE_WORD: self._word
                           }
         if filename is not None:
-            with open(filename, 'r') as file_in:
-                self.from_string(StringSource(file_in.read()))
+            self.from_file(filename)
         else:
             self.contents = None
 
@@ -731,18 +730,6 @@ class ParserGenerator:
         rule = None
         if c == '"': # regex terminal
             rule = RegexRule(self._read_regex())
-        elif c == '&': # positive lookahead
-            self._skip_punctuator(c)
-            la_rule = self._get_term_nonterm()
-            if la_rule is None:
-                raise ValueError(f"syntax error: invalid rule for positive lookahead list near {self.contents.read(20)}")
-            rule = PositiveLookahead(la_rule)
-        elif c == '!': # negative lookahead
-            self._skip_punctuator(c)
-            la_rule = self._get_term_nonterm()
-            if la_rule is None:
-                raise ValueError(f"syntax error: invalid rule for negative lookahead list near {self.contents.read(20)}")
-            rule = NegativeLookahead(la_rule)
         elif c == "'": # string literal terminal or delimited list
             string = self._read_string_literal()
             c = self.contents.peek(1)
@@ -755,6 +742,19 @@ class ParserGenerator:
                     raise ValueError(f"syntax error: invalid rule for delimiter list near {self.contents.read(20)}")
             else: # string literal
                 rule = StringRule(string)
+        elif c == '&': # positive lookahead
+            self._skip_punctuator(c)
+            la_rule = self._get_term_nonterm()
+            if la_rule is None:
+                raise ValueError(f"syntax error: invalid rule for positive lookahead list near {self.contents.read(20)}")
+            rule = PositiveLookahead(la_rule)
+        elif c == '!': # negative lookahead
+            self._skip_punctuator(c)
+            la_rule = self._get_term_nonterm()
+            if la_rule is None:
+                raise ValueError(f"syntax error: invalid rule for negative lookahead list near {self.contents.read(20)}")
+            rule = NegativeLookahead(la_rule)
+        
         elif c == '(': # anonymous sub-production
             self._skip_punctuator(c)
             self._skip_whitespace()
@@ -778,12 +778,12 @@ class ParserGenerator:
             if c == '+':
                 self._skip_punctuator(c)
                 rule = Repeat(rule, 1, 0)
-            elif c == '?':
-                self._skip_punctuator(c)
-                rule = Repeat(rule, 0, 1)
             elif c == '*':
                 self._skip_punctuator(c)
                 rule = Repeat(rule, 0, 0)
+            elif c == '?':
+                self._skip_punctuator(c)
+                rule = Repeat(rule, 0, 1)
             elif c == '{':
                 self._skip_punctuator(c)
                 self._skip_whitespace()
@@ -943,8 +943,8 @@ class ParserGenerator:
             file_out.write('\n'.join(parser_file))
             file_out.write(f"""\n
 class {self.export}Parser(Parser):
-    def __init__(self, string, line_offset = 0, col_offset = 0):
-        super().__init__(string, TOKEN, ROOT, line_offset, col_offset)
+    def __init__(self, string, *args, **kwargs):
+        super().__init__(string, TOKEN, ROOT, *args, **kwargs)
 """)
         parser_file.clear()
 
@@ -975,10 +975,13 @@ class {self.export}Parser(Parser):
     def from_string(self, grammar):
         self.contents = grammar
         self.generate_parser()
+    def from_file(self, filename):
+        with open(filename, 'r') as file_in:
+            self.from_string(StringSource(file_in.read()))
 
 # ABC, any parser will inherit from this
 class Parser:
-    def __init__(self, string, token_rule, root_rule, line_offset = 0, col_offset = 0):
+    def __init__(self, string, token_rule, root_rule, line_offset = 0, col_offset = 0, lazy_parse = False):
         self.token_rule = token_rule
         self.root_rule = root_rule
         self._loc = 0 # this is the token_key number
@@ -986,9 +989,9 @@ class Parser:
         self.longest_rule = None
         self.longest_loc = 0
         self.disable_cache_check = False
-        self.ast = self._parse()
-        if self.ast is FAIL_NODE:
-            print("parsing failed", self.longest_rule, self.longest_loc, [str(t) for t in self.tokens])
+        self.ast = None
+        if not lazy_parse:
+            self.parse()
     def __iter__(self):
         return iter(self.tokens)
     def tell(self):
@@ -1074,10 +1077,12 @@ class Parser:
         return self.tokens[key]
     def get_tokens(self, node):
         return [self[i] for i in range(node.token_key, node.token_key + node.ntokens)]
-    def _parse(self):
+    def parse(self):
         #print(self[0], self._loc)
         #self._loc += 1
         #print(self[1], self._loc)
         #self._loc += 1
         #print(self[2], self._loc)
-        return self.root_rule.check(self)
+        self.ast = self.root_rule.check(self)
+        if self.ast is FAIL_NODE:
+            print("parsing failed", self.longest_rule, self.longest_loc, repr(str(self.tokens[-1])))

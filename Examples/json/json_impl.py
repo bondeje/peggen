@@ -1,5 +1,32 @@
 from jsonpeg_ import *
 
+class JSONValue(Node):
+    __slots__ = ("value",)
+    def __init__(self, base_node, value):
+        super().__init__(base_node.rule, base_node.token_key, base_node.ntokens, base_node.length, base_node.children)
+        self.value = value
+    def get_object(self):
+        return self.value
+
+class jsonParser(jsonpegParser):
+    def __init__(self, *args, **kwargs):
+        if 'lazy_parse' not in kwargs:
+            kwargs['lazy_parse'] = True
+        super().__init__(*args, **kwargs)
+    def load(self, default = None):
+        if self.ast is None:
+            self.parse()
+        if self.ast is not FAIL_NODE:
+            return [n.get_object() for n in self.ast]
+        return default
+
+def load(filename):
+    with open(filename, 'r') as file_in:
+        return loads(file_in.read())
+    return None
+def loads(string):
+    return jsonParser(string).load()
+
 def handle_true(parser, node):
     return True
 def handle_false(parser, node):
@@ -7,7 +34,10 @@ def handle_false(parser, node):
 def handle_null(parser, node):
     return None
 def handle_root(parser, node):
-    return print([str(t) for t in parser], '=', [handle_value(parser, v) for v in node[0]])
+    children = node[0]
+    # in C version, need to clear out the children
+    node.children = [JSONValue(v, handle_value(parser, v)) for v in children]
+    return node
 def handle_value(parser, node):
     rule = node[0].rule
     if rule is OBJECT:

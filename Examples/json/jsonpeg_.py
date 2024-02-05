@@ -27,5 +27,5 @@ DECIMAL_FLOAT_CONSTANT = Production(name = "decimal_float_constant")
 NUMBER = Production(name = "number")
 
 class jsonpegParser(Parser):
-    def __init__(self, string, line_offset = 0, col_offset = 0):
-        super().__init__(string, TOKEN, ROOT, line_offset, col_offset)
+    def __init__(self, string, *args, **kwargs):
+        super().__init__(string, TOKEN, ROOT, *args, **kwargs)
