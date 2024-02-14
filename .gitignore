@@ -167,3 +167,5 @@ cx/
 *.log
 *.json
 *.c
+*.hpp
+*.h
