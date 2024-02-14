@@ -32,3 +32,4 @@ FLOAT = Production(name = "float")
 class BasicCalculatorParser(Parser):
     def __init__(self, string, *args, **kwargs):
         super().__init__(string, TOKEN, ROOT, *args, **kwargs)
+__all__ = ["PUNC_43","PUNC_45","PUNC_47","PUNC_42","PUNC_94","PUNC_40","PUNC_41","PUNC_37","ROOT","TOKEN","WHITESPACE","PUNCTUATOR","ADD_SUB_EXPRESSION","MUL_DIV_MOD_EXPRESSION","POWER_EXPRESSION","EVALUATED_EXPRESSION","UNARY_EXPRESSION","UNARY_OPERATOR","EXPRESSION","ADD","SUBTRACT","DIVIDE","MULTIPLY","POWER","MOD","NUMBER","INTEGER","FLOAT","BasicCalculatorParser"]

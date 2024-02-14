@@ -1,5 +1,5 @@
-import sys
-#sys.path.append("../..")
+import sys, time
+sys.path.append("../..")
 import jsonpeg as json
 
 print(json.jsonParser("3").load())

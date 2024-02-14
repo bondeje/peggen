@@ -8,6 +8,21 @@ SEEK_END = 2
 
 ACTION_REGEX = re.compile("[a-zA-Z0-9_\.]*")
 
+TRAVERSE_INORDER = 0
+TRAVERSE_PREORDER = 1
+TRAVERSE_POSTORDER = 2
+TRAVERSE_LEVELORDER = 3
+DEFAULT_INDENTATION = '    '
+
+CACHE_CHECKING = 0
+CACHE_RECORDING = 1
+RULE_CHECKING = 2
+LOGGING = 3
+TIMES = [0.0, 0.0, 0.0, 0.0]
+RULE_CHECK_NUM = 0
+CACHE_HITS = 1
+RULE_CHECKS = [0, 0]
+
 # source is a file
 class IOSource:
     def __init__(self, source):
@@ -186,7 +201,7 @@ class Token:
         self.end = end
         self.line = line
         self.col = col
-        self._hash = hash((id(self.string), self.end))
+        self._hash = hash((id(self.string), self.start))
     def __len__(self):
         return self.end - self.start
     def coords(self):
@@ -197,8 +212,9 @@ class Token:
         return self.string[self.start:self.end]
 
 class Node:
-    __slots__ = ("length", 'children', 'rule', 'token_key', 'ntokens')
+    __slots__ = ("type", "length", 'children', 'rule', 'token_key', 'ntokens')
     def __init__(self, rule, token_key, ntokens, length, children):
+        self.type = "Node"
         self.length = length # this is the length of the string covered by the node
         self.children = children
         self.rule = rule
@@ -213,10 +229,40 @@ class Node:
     def __len__(self):
         return 0 if not self.children else len(self.children)
     def __str__(self):
-        return f"rule:{self.rule},\nlength:{self.length},\ntoken_key:{self.token_key},\nntokens:{self.ntokens},\nnchildren:{len(self)},\nchildren:{', '.join(str(c.rule) for c in self)}"
+        if self.ntokens == 1:
+            return f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}"
+        elif self.ntokens > 1:
+            return f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}. Children: {len(self.children)}"
+        return 'NO NODE!'
+    def traverse_action(self, ctxt):
+        return True
+    def build_action(self, ctxt):
+        return self
+#    def print(self, buffer, indent = None):
+#        if self.ntokens:
+#            if indent is None:
+#                indent = []
+#            if self.ntokens == 1:
+#                buffer.append(''.join(indent) + f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}")
+#            else:
+#                buffer.append(''.join(indent) + f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}. Children: {len(self.children)}")
+#                indent.append(DEFAULT_INDENTATION)
+#                for child in self:
+#                    child.print(buffer, indent)
+#                indent.pop()
+    
+class ProductionNode(Node):
+    __slots__ = tuple()
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.type = "ProductionNode"
+    def traverse_action(self, ctxt):
+        return self.rule.traverse_action(ctxt, self)
+    def build_action(self, ctxt):
+        return self.rule.build_action(ctxt, self)
 
 FAIL_NODE = Node(None, 0, 0, 0, None) # this is a placeholder for an empty Node to indicate failures different from None
-LOOKAHEAD_NODE = Node(None, 0, 0, 1, None) # LOOKAHEAD_NODE should act as a skip node
+LOOKAHEAD_NODE = Node(None, 0, 0, 1, None) # LOOKAHEAD_NODE should have is_SKIP_NODE return True. This is handled by class And._check_rule to properly skip it
 
 def make_SKIP_NODE(node):
     node.rule = 0
@@ -271,15 +317,31 @@ class Rule:
     def _check_rule(self, parser, token_key, disable_cache_check = False):
         raise NotImplementedError(f"rule did not overload _check_rule(parser, token_key) for id {self._id}, type={type(self)}")
     def check(self, parser, disable_cache_check = False):
+        #RULE_CHECKS[RULE_CHECK_NUM] += 1
         token_key = parser.tell()
         #print(f"checking rule: {self._id} at {token_key}...")
         if not disable_cache_check:
+            #t0 = time.perf_counter_ns()
             res = self._check_cache(parser, token_key)
+            #t1 = time.perf_counter_ns()
+            #TIMES[CACHE_CHECKING] += t1 - t0
             if res is not None:
+                #RULE_CHECKS[CACHE_HITS] += 1
                 #print("returning from cache")
                 return res
+        #t0 = time.perf_counter_ns()
         res = self._check_rule(parser, token_key, disable_cache_check)
+        #t1 = time.perf_counter_ns()
+        #TIMES[RULE_CHECKING] += t1 - t0
+        #t0 = time.perf_counter_ns()
         self._cache_check(parser, token_key, res)
+        #t1 = time.perf_counter_ns()
+        #TIMES[CACHE_RECORDING] += t1 - t0
+
+        #t0 = time.perf_counter_ns()
+        parser.log(token_key, self, res)
+        #t1 = time.perf_counter_ns()
+        #TIMES[LOGGING] += t1 - t0
         if res is FAIL_NODE:
             parser.seek(token_key, SEEK_SET)
         #print(f"RESULT {'Success' if res is not FAIL_NODE else 'Failed '} {self._id} ...{repr(str(parser[token_key]))}, loc = {parser.tell()}")
@@ -299,6 +361,7 @@ class ChainedRule(Rule):
                 t.clear_cache(token)
     
 class And(ChainedRule):
+    __slots__ = tuple()
     def __init__(self, terms_nonterms, _id = None):
         if _id is None:
             _id = '(' + ', '.join(str(t) for t in terms_nonterms) + ')'
@@ -330,6 +393,7 @@ class And(ChainedRule):
         return Node(self, token_key, token_cur - token_key, parser[token_cur].start - parser[token_key].start, children)
 
 class LongChoice(ChainedRule):
+    __slots__ = tuple()
     def __init__(self, terms_nonterms, _id = None):
         if _id is None:
             _id = '(' + ' | '.join(str(t) for t in terms_nonterms) + ')'
@@ -350,6 +414,7 @@ class LongChoice(ChainedRule):
         return node
 
 class FirstChoice(ChainedRule):
+    __slots__ = tuple()
     def __init__(self, terms_nonterms, _id = None):
         if _id is None:
             _id = '(' + ' \ '.join(str(t) for t in terms_nonterms) + ')'
@@ -389,22 +454,84 @@ class LiteralRule(Rule):
             return FAIL_NODE
         #print(self._id, ':', token)
         m = self.regex.match(token.string, token.start, token.end)
+        if self._id == "[^\()]*":
+            print(self._id, "None" if m is None else m, token.string[token.start:token.end])
         if m:
             parser.seek(1, SEEK_CUR)
             #print(f"final key {parser.tell()}")
-            return Node(self, token_key, 1, m.end() - m.start(), None)
+            length = m.end() - m.start()
+            return Node(self, token_key, 1 if length else 0, length, None)
         #print(f"final key {parser.tell()}")
         return FAIL_NODE
 
 class StringRule(LiteralRule):
+    __slots__ = tuple()
     def __init__(self, _id):
-        super().__init__(_id, re.compile(simple_string_to_regex(_id)))
+        super().__init__(_id, re.compile(simple_string_to_regex(_id), flags = re.DOTALL))
+
+# punctuation rules
+DASH = StringRule('-')
+MINUS = DASH
+COMMA = StringRule(',')
+COLON = StringRule(':')
+BSLASH = StringRule('\\')
+FSLASH = StringRule('/')
+VBAR = StringRule('|')
+BITOR = VBAR
+LOGOR = StringRule('||')
+BITAND = StringRule('&')
+LOGAND = StringRule('&&')
+DIV = FSLASH
+MOD = StringRule('%')
+PERCENT = MOD
+BANG = StringRule('!')
+SHEBANG = StringRule('#!')
+LOGNOT = BANG
+BITNOT = StringRule('~')
+BITXOR = StringRule('^')
+SEMICOLON = StringRule(';')
+UNDERSCORE = StringRule('_')
+LSHIFT = StringRule('<<')
+RSHIFT = StringRule('>>')
+EQUALS = StringRule('=')
+POUND = StringRule('#')
+PLUS = StringRule('+')
+DEQUALS = StringRule('==')
+TEQUALS = StringRule('===')
+DEFEQUALS = StringRule(':=')
+NEQUALS = StringRule('!=')
+MULTEQUALS = StringRule('*=')
+DIVEQUALS = StringRule('/=')
+MODEQUALS = StringRule('%=')
+PLUSEQUALS = StringRule('+=')
+MINUSEQUALS = StringRule('-=')
+LSHIFTEQUALS = StringRule('<<=')
+RSHIFTEQUALS = StringRule('>>=')
+ANDEQUALS = StringRule('&=')
+XOREQUALS = StringRule('^=')
+OREQUALS = StringRule('|=')
+LBRACE = StringRule('{')
+RBRACE = StringRule('}')
+LPAREN = StringRule('(')
+RPAREN = StringRule(')')
+LBRKT = StringRule('[')
+RBRKT = StringRule(']')
+PERIOD = StringRule('.')
+DOT = PERIOD
+ELLIPSIS = StringRule('...')
+LANGLE = StringRule('<')
+RANGLE = StringRule('>')
+LESSER = LANGLE
+GREATER = RANGLE
+ARROW = StringRule('->')
 
 class RegexRule(LiteralRule):
+    __slots__ = tuple()
     def __init__(self, _id):
-        super().__init__(_id, re.compile(_id))
+        super().__init__(_id, re.compile(_id, flags = re.DOTALL))
 
 class NamedProduction(Rule):
+    __slots__ = tuple()
     def __init__(self, _id):
         super().__init__(_id)
     def build(self, parser_generator):
@@ -470,6 +597,7 @@ class Repeat(DerivedRule):
     def build(self, parser_generator):
         return f"Repeat({self.rule.build(parser_generator)}, {self.min_rep}, {self.max_rep})"
     def _check_rule(self, parser, token_key, disable_cache_check = False):
+        #print(self, '\n', self.rule)
         node = self.rule.check(parser, disable_cache_check)
         ct = 0
         node_list = []
@@ -484,26 +612,29 @@ class Repeat(DerivedRule):
         return Node(self, token_key, token_cur - token_key, parser[token_cur].start - parser[token_key].start, node_list)
     
 class AnonymousProduction(DerivedRule):
+    __slots__ = tuple()
     def build(self, parser_generator):
         return self.rule.build(parser_generator)
     # shouldn't have to implemented _check_rule as this would be a grammar error if it still exists in generated parser
     
-def prod_transform_def(parser, node):
+def prod_action_default(ctxt, node): # ctxt is anything
     return node
 
-PROD_TRANSFORM_DEF = f"prod_transform_def"
+PROD_ACTION_DEFAULT = f"prod_action_default"
 
 class Production(AnonymousProduction):
-    __slots__ = ("action", "action_name")
-    def __init__(self, rule=None, name=None, action = None, action_name = PROD_TRANSFORM_DEF):
+    __slots__ = ("build_action", "build_action_name", "traverse_action", "traverse_action_name")
+    def __init__(self, rule=None, name=None, build_action = None, build_action_name = PROD_ACTION_DEFAULT, traverse_action = None, traverse_action_name = PROD_ACTION_DEFAULT):
         super().__init__(rule)
         self._id = name
-        if action is None:
-            self.action = None
-            self.action_name = action_name
-        else:
-            self.action = action
-            self.action_name = str(action) # this is not robust
+        if build_action is not None:
+            build_action_name = str(build_action)
+        self.build_action = build_action
+        self.build_action_name = build_action_name
+        if traverse_action is not None:
+            traverse_action_name = str(traverse_action)
+        self.traverse_action = traverse_action
+        self.traverse_action_name = traverse_action_name
     def build(self, parser_generator):
         try:
             resolved_rule = self.rule.build(parser_generator)
@@ -511,18 +642,19 @@ class Production(AnonymousProduction):
             print(f"Failed to build Production {self._id} due to rule build failure")
             raise e
         #print(self._id, self.transform)
-        #print(repr(self.action_name))
+        #print(repr(self.build_action_name))
         
         if resolved_rule is None:
-            return f"RegexRule(\"{self.rule._id}\"), \"{self._id}\", {self.action_name}"
+            return f"RegexRule(\"{self.rule._id}\"), \"{self._id}\", {self.build_action_name}"
         else:
-            return f"{resolved_rule}, \"{self._id}\", {self.action_name}"
+            return f"{resolved_rule}, \"{self._id}\", {self.build_action_name}"
         
     def _check_rule(self, parser, token_key, disable_cache_check = False):
         #print("disable check:", disable_cache_check)
+        #print("production:", self, '\n', self.rule)
         node = self.rule.check(parser, disable_cache_check)
         if node is not FAIL_NODE:
-            return self.action(parser, Node(self, node.token_key, node.ntokens, node.length, [node]))
+            return self.build_action(parser, ProductionNode(self, node.token_key, node.ntokens, node.length, [node]))
         return node
 
 class NegativeLookahead(DerivedRule):
@@ -639,11 +771,11 @@ class ParserGenerator:
             self._keywords()
         elif string == "token":
             self.productions[string] = [self._get_named_production(string), string.upper()]
-            self.productions[string][0].action_name = f"token_action"
+            self.productions[string][0].build_action_name = f"token_action"
         #elif string == "whitespace":
         #    self.productions[string] = [self._get_named_production(string), string.upper()]
-        #    if self.productions[string][0].action_name == PROD_TRANSFORM_DEF:
-        #        self.productions[string][0].action_name = f"skip_token"
+        #    if self.productions[string][0].build_action_name == prod_build_action_def:
+        #        self.productions[string][0].build_action_name = f"skip_token"
         elif stopped == '':
             self.state = PGEN_STATE_END
             return
@@ -878,7 +1010,7 @@ class ParserGenerator:
         #print(term_stack)            
         return BINARY_OP_RULES[op_stack.pop()](terms)
 
-    def _get_production(self, name = None, transform = None):
+    def _get_production(self, name = None, build_action = None):
         binary_ops = deque([])
         terms_nonterms = deque([])
         #print("getting production", production_obj)
@@ -903,24 +1035,24 @@ class ParserGenerator:
         rule = self._reorg_production(binary_ops, terms_nonterms)
         #print(f"production {name}:", type(rule))
         if name is not None:
-            return Production(rule, name, transform)
+            return Production(rule, name, build_action)
         return AnonymousProduction(rule)
         
     def _get_named_production(self, name):
         #print("handling named production:", production_obj)
         c = self.contents.peek(1)
-        action = None
+        build_action = None
         if c == TRANSFORM_OPEN:
             self.contents.read()
             self._skip_whitespace()
-            #action = self._read_word()
-            action = self._read_action()
-            #print("found action:", action)
+            #build_action = self._read_word()
+            build_action = self._read_action()
+            #print("found action:", build_action)
             self.contents.read_until_char(')', include = True)
             self._skip_whitespace()
         self._skip_punctuator(PROD_DEF)
         self._skip_whitespace()
-        return self._get_production(name, action)
+        return self._get_production(name, build_action)
     
     def resolve_name(self, _id):
         if _id in self.punctuators:
@@ -938,20 +1070,24 @@ class ParserGenerator:
     
     def build_parser(self):
         parser_file = []
+        all_string = []
         #enums = [f"{self.list_name} = [-1 for it in range({self._enum_ct})]"]
 
         # declare and define the punctuators and keywords first
         for k, v in self.punctuators.items():
             #enums.append(f"{v[2]} = {v[1]}")
             parser_file.append(f"{v[1]} = StringRule(\"{k}\")")
+            all_string.append(f'"{v[1]}"')
         for k, v in self.keywords.items():
             #enums.append(f"{v[2]} = {v[1]}")
             parser_file.append(f"{v[1]} = StringRule(\"{k}\")")
+            all_string.append(f'"{v[1]}"')
 
         # must declare all the productions first
         for k, v in self.productions.items():
             #enums.append(f"{v[2]} = {v[1]}")
             parser_file.append(f"{v[1]} = Production(name = \"{k}\")")
+            all_string.append(f'"{v[1]}"')
 
         declaration_module = self.export + '_'
         with open(os.path.join(self.dir_, declaration_module) + '.' + self.export_type, 'w') as file_out:
@@ -963,6 +1099,8 @@ class {self.export}Parser(Parser):
     def __init__(self, string, *args, **kwargs):
         super().__init__(string, TOKEN, ROOT, *args, **kwargs)
 """)
+            all_string.append(f'"{self.export}Parser"')
+            file_out.write(f"__all__ = [{','.join(all_string)}]\n")
         parser_file.clear()
 
         for k, v in self.productions.items():
@@ -996,16 +1134,25 @@ class {self.export}Parser(Parser):
         with open(filename, 'r') as file_in:
             self.from_string(StringSource(file_in.read()))
 
+def default_traverse_action(ctxt, node):
+    level = ctxt[1].pop()
+    if node.ntokens:
+        ctxt[0].append(DEFAULT_INDENTATION * level + str(node))
+    for child in node:
+        ctxt[1].append(level + 1)
+
 # ABC, any parser will inherit from this
 class Parser:
-    def __init__(self, string, token_rule, root_rule, line_offset = 0, col_offset = 0, lazy_parse = False):
+    def __init__(self, string, token_rule, root_rule, line_offset = 0, col_offset = 0, lazy_parse = False, logfile = None):
         self.token_rule = token_rule
         self.root_rule = root_rule
         self._loc = 0 # this is the token_key number
         self.tokens = [Token(string, 0, len(string), line_offset, col_offset)] # offsets in line and column in case parsing a template string in the middle of a file
-        self.longest_rule = None
+        self.longest_rule = []
         self.longest_loc = 0
         self.disable_cache_check = False
+        self._log = None if logfile is None else []
+        self.logfile = logfile
         self.ast = None
         if not lazy_parse:
             self.parse()
@@ -1023,6 +1170,22 @@ class Parser:
             self._loc += loc
         else: # SEEK_END
             self._loc = self.tokens[-1].end + loc
+    # for general logging
+    def log(self, loc, rule, res):
+        if self._log is not None:
+            token_str = str(self[loc])
+            self._log.append(' - '.join([str(rule), "Succeeded" if res is not FAIL_NODE else "Failed", str(loc) + "-"+str(loc + res.ntokens), token_str[:min(len(token_str), 20)]]))
+        if res is FAIL_NODE:
+            self._log_check_fail(loc, rule)
+    # for stack trace
+    def _log_check_fail(self, loc, rule):
+        if loc >= self.longest_loc: # if just '>' then it will always show tokenization rule
+            self.longest_loc = loc
+            self.longest_rule.clear()
+            self.longest_rule.append(rule)
+        else:
+            self.longest_rule.append(rule)
+
     def _get_line_col_end(self, token): # need to record the overall line positions for retrieving lines
         #print(str(token))
         string = token.string
@@ -1040,6 +1203,9 @@ class Parser:
             col += token.col
         return line, col
     def _gen_final_token(self, node):
+        # a new token represented by node is found. clear fail log to distinguish tokenization failure from syntax failure
+        self.longest_rule.clear()
+        # generate a new final_token/remaining string
         final_token = self.tokens[-1]
         end = final_token.end
         final_token.end = final_token.start + node.length
@@ -1098,17 +1264,84 @@ class Parser:
         #print(self[1], self._loc)
         #self._loc += 1
         #print(self[2], self._loc)
+        #t = time.time()
         self.ast = self.root_rule.check(self)
-        if self.ast is FAIL_NODE:
-            print("parsing failed", self.longest_rule, self.longest_loc, repr(str(self.tokens[-1])))
+        #t = time.time() - t
+        #print("parse time:", t, "seconds")
+        if self.ast is FAIL_NODE or len(str(self.tokens[-1])) > 0:
+            print("parsing failed", self.longest_loc, repr(str(self.tokens[-1])))
+            #for rule in reversed(self.longest_rule):
+            #    print(rule)
 
         # recursively clear caches to reclaim memory
+        #t = time.time()
         for token in self.tokens:
             self.root_rule.clear_cache(token)
             self.token_rule.clear_cache(token)
+        #t = time.time() - t
+        #print("cache clearing time:", t, "seconds")        
+        #if self.logfile:
+            #print("writing log file")
+        if self._log:
+            #print("writing log")
+            #t = time.time()
+            with open(self.logfile, 'w') as file_out:
+                file_out.write('\n'.join(self._log))
+                file_out.write('\n[')
+                out = []
+                l = 4
+                for i, tok in enumerate(self):
+                    s = '(' + repr(str(tok))+ ',' + str(i) + ')'
+                    sl = len(s) + 1
+                    if l + sl > 1000:
+                        out.append('\n    ')
+                        l = 0
+                    out.append(s)
+                    out.append(',')
+                    l += sl
+                out.pop() # pop last comma
+                file_out.write(''.join(out))
+                file_out.write(']\n')
+            #t = time.time() - t
+            #print("logging time:", t, "seconds")
     def check_cache(self, rule):
         cache_loc = (rule, self.tell())
         if cache_loc in self._cache:
             res = self._cache[cache_loc]
             self.seek(res.ntokens, SEEK_CUR) # this works even for FAIL_NODE since ntokens must be 0
         return res
+    
+    # for default traverse action
+    def traverse(self, traverse_action = None, ctxt = None, order = TRAVERSE_PREORDER):
+        if order != TRAVERSE_PREORDER:
+            raise NotImplementedError("non-level_order traversals are not yet implemented")
+        if traverse_action is not None:
+            if order == TRAVERSE_PREORDER:
+                stack = [self.ast]
+                while stack:
+                    node = stack.pop()
+                    try:
+                        traverse_action(ctxt, node)
+                    except Exception as e:
+                        print(ctxt)
+                        print(node)
+                        raise e
+                    for child in reversed(node):
+                        stack.append(child)
+        else: # action is None and ctxt is ignored, use user defined actions on Productions. Skip those visited
+            if ctxt is None:
+                ctxt = self
+            stack = [self.ast]
+            while stack:
+                node = stack.popleft()
+                if node.traverse_action(ctxt): # if traverse returns a non-False answer, continue traversal down node
+                    for child in reversed(node):
+                        stack.append(child)
+    
+    def print_ast(self):
+        ctxt = [["AST:"], deque([0])]
+        self.traverse(default_traverse_action, ctxt)
+        #out = []
+        #self.ast.print(out)
+        #print('\n'.join(out))
+        return '\n'.join(ctxt[0])

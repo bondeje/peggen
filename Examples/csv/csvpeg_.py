@@ -14,3 +14,4 @@ STRING = Production(name = "string")
 class csvpegParser(Parser):
     def __init__(self, string, *args, **kwargs):
         super().__init__(string, TOKEN, ROOT, *args, **kwargs)
+__all__ = ["PUNC_44","ROOT","TOKEN","RECORD","NONSTRING_FIELD","FIELD","WHITESPACE","CRLF","PUNCTUATOR","STRING","csvpegParser"]

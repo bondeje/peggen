@@ -1,6 +1,6 @@
 from csvpeg_ import *
 from collections.abc import Sequence
-
+from peggen.peggen_ import Node, FAIL_NODE
 class CSV:
     __slots__ = ("headers", "records")
     def __init__(self, records, headers = None):

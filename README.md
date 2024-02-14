@@ -1,5 +1,4 @@
 # peggen
-PEG generator
 
 A parser generator library that generates a PEG-style parser for a given grammar.
 
@@ -7,7 +6,7 @@ It is designed to be as simple as possible to use--once the grammar specificatio
 
 ## When to use <b>peggen</b>
 
-If you want to build a parser that produces an AST that can be manipulated on the fly using a pPEG parsing strategy while also providing tokenization/lexical analysis all in the same grammar/specification.
+If you want to build a parser that produces an AST that can be manipulated on the fly using a PEG parsing strategy while also providing tokenization/lexical analysis all in the same grammar/specification.
 
 If your goal is otherwise--even if it is simpler--I suggest looking at `parsimonious`. My next option was to hack it a little bit if I couldn't get my own to work. Just watch out for the switch in operator precedence of AND/OR in `parsimonious` ("sequence"/"first_choice" in peggen); it is reversed from what you might expect reading other PEGs.
 

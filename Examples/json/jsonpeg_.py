@@ -29,3 +29,4 @@ NUMBER = Production(name = "number")
 class jsonpegParser(Parser):
     def __init__(self, string, *args, **kwargs):
         super().__init__(string, TOKEN, ROOT, *args, **kwargs)
+__all__ = ["PUNC_44","PUNC_123","PUNC_125","PUNC_91","PUNC_93","PUNC_58","TRUE","FALSE","NULL","ROOT","TOKEN","PUNCTUATOR","KEYWORD","KEYWORD_VALUE","VALUE","WHITESPACE","OBJECT","MEMBERS","MEMBER","ARRAY","ELEMENTS","STRING","INT_CONSTANT","DECIMAL_FLOAT_CONSTANT","NUMBER","jsonpegParser"]

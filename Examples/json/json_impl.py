@@ -1,12 +1,16 @@
 from jsonpeg_ import *
+from peggen import Node, FAIL_NODE
+import time
 
 class JSONValue(Node):
     __slots__ = ("value",)
     def __init__(self, base_node, value):
-        super().__init__(base_node.rule, base_node.token_key, base_node.ntokens, base_node.length, base_node.children)
+        super().__init__(base_node.rule, base_node.token_key, base_node.ntokens, base_node.length, [])
         self.value = value
     def get_object(self):
         return self.value
+    def __str__(self):
+        return f"JSONValue: {repr(str(self.value))}"
 
 class jsonParser(jsonpegParser):
     def __init__(self, *args, **kwargs):
@@ -14,8 +18,11 @@ class jsonParser(jsonpegParser):
             kwargs['lazy_parse'] = True
         super().__init__(*args, **kwargs)
     def load(self, default = None):
+        #t = time.time()
         if self.ast is None:
             self.parse()
+        #t = time.time() - t
+        #print('time to parse (mine):', t, "seconds")
         if self.ast is not FAIL_NODE:
             return [n.get_object() for n in self.ast]
         return default
