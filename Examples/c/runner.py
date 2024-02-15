@@ -8,7 +8,8 @@ import c, peggen
 #c.from_file("funcdecltr.hx", file_out = "funcdecltr.hx.ast")#, logfile = "funcdecltr.hx.log")
 #c.from_file("main.hx", file_out = "main.hx.ast", logfile = "main.hx.log")
 #c.from_file("stdio.hpp", file_out = "stdio.hpp.ast", logfile = "stdio.hpp.log")
-c.from_file("stdio.hpp_test.h", file_out = "stdio.hpp_test.ast", logfile = "stdio.hpp_test.log")
+#c.from_file("stdio.hpp_test.h", file_out = "stdio.hpp_test.ast", logfile = "stdio.hpp_test.log")
+c.from_file("ambiguous_typedef.hx", file_out = "ambiguous_typedef.hx.ast", logfile = "ambiguous_typedef.hx.log")
 #for t in peggen.TIMES:
 #    print("time: ", t/1e9, "seconds")
 #print("Rule Checks:", peggen.RULE_CHECKS[peggen.RULE_CHECK_NUM])

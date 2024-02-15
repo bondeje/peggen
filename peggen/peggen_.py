@@ -212,7 +212,7 @@ class Token:
         return self.string[self.start:self.end]
 
 class Node:
-    __slots__ = ("type", "length", 'children', 'rule', 'token_key', 'ntokens')
+    __slots__ = ("type", "length", 'children', 'rule', 'token_key', 'ntokens') # length and ntokens might be redundant. Have to check if PASS_NODE vs FAIL_NODE still makes sense
     def __init__(self, rule, token_key, ntokens, length, children):
         self.type = "Node"
         self.length = length # this is the length of the string covered by the node
@@ -417,7 +417,7 @@ class FirstChoice(ChainedRule):
     __slots__ = tuple()
     def __init__(self, terms_nonterms, _id = None):
         if _id is None:
-            _id = '(' + ' \ '.join(str(t) for t in terms_nonterms) + ')'
+            _id = '(' + ' / '.join(str(t) for t in terms_nonterms) + ')'
         super().__init__(terms_nonterms, _id)
     def build(self, parser_generator):
         return f"FirstChoice([{','.join(t.build(parser_generator) for t in self.terms_nonterms)}], '{self._id}')"
@@ -1268,8 +1268,8 @@ class Parser:
         self.ast = self.root_rule.check(self)
         #t = time.time() - t
         #print("parse time:", t, "seconds")
-        if self.ast is FAIL_NODE or len(str(self.tokens[-1])) > 0:
-            print("parsing failed", self.longest_loc, repr(str(self.tokens[-1])))
+        if self.ast is FAIL_NODE or self.ast.ntokens < len(self.tokens)-1:
+            print("parsing failed", self.longest_loc, repr(str(self.tokens[self.ast.ntokens-1])))
             #for rule in reversed(self.longest_rule):
             #    print(rule)
 

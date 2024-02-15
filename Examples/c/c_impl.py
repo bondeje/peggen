@@ -1,4 +1,5 @@
 from c_ import *
+from peggen.peggen_ import SEEK_SET
 """
 class Scope:
     def __init__(self, parent = None, name = None):
@@ -16,6 +17,21 @@ class CParser(cParser):
         self.scope = Scope(None, "Global")
         super().__init__(string, *args, **kwargs)
         """
+
+def directive_line(parser, prod_node):
+    start = prod_node.token_key
+    line = parser[start].line
+    end = start + 1
+    token = parser[end]
+    while len(token) and token.line == line:
+        end += 1
+
+        token = parser[end]
+    # token now points to a token on the next line or the final token in the parser stream
+    prod_node.length = parser[end].start - parser[start].start
+    prod_node.ntokens = end - start
+    parser.seek(end, SEEK_SET)
+    return prod_node
 
 def from_file(filename, file_out = None, *args, **kwargs):
     result = None
