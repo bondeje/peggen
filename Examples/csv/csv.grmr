@@ -8,15 +8,12 @@ import: csv_impl
     the internal '\r\f' on the header portion must be optional
 */
 root(handle_root):
-    crlf.record, (crlf | whitespace)*
+    crlf.record, (crlf \ whitespace)*
 token:
     crlf \ punctuator \ whitespace \ field
 record:
     ','.field
-/*
-header:
-    ','.field
-*/
+
 nonstring_field:
     "[^,\r\n]*"
 field:

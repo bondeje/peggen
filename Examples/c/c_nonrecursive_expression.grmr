@@ -1,7 +1,7 @@
 export: c
 import: c_impl2
-//root(c_root):
-root:
+root(c_root):
+//root:
 	external_declaration+
 
 /*root:
@@ -193,8 +193,7 @@ unary_operator:
 	\ '!'
 	
 cast_expression:
-	  '(', type_name, ')', cast_expression
-	\ unary_expression
+	('(', type_name, ')')*, unary_expression
 
 multiplicative_expression:
 	cast_expression, (('*' \ '/' \ '%'), cast_expression)*
@@ -227,12 +226,10 @@ logOR_expression:
 	logAND_expression, ('||', logAND_expression)*
 	
 conditional_expression:
-	  logOR_expression, '?', expression, ':', conditional_expression
-	\ logOR_expression
+	logOR_expression, ('?', expression, ':', logOR_expression)*
 
 assignment_expression:
-	  unary_expression, assignment_operator, assignment_expression
-	\ conditional_expression
+	(unary_expression, assignment_operator)*, conditional_expression
 
 assignment_operator:
 	  '='

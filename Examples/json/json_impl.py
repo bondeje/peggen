@@ -75,7 +75,7 @@ def handle_elements(parser, node, arr):
        # print(element)
         arr.append(handle_value(parser, element))
 def handle_string(parser, node):
-    return str(parser.get_tokens(node[0])[0])
+    return str(parser.get_tokens(node[0])[0])[1:-1]
 def handle_number(parser, node):
     if node[0].rule is INT_CONSTANT:
         return handle_int_constant(parser, node[0])

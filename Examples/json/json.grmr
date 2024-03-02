@@ -44,4 +44,4 @@ decimal_float_constant:
     "[-+]?((((\d*\.\d+)|(\d+\.))([eE][-+]?\d+)?)|(\d+[eE][-+]?\d+))"
 
 number:
-    int_constant | decimal_float_constant
+    decimal_float_constant \ int_constant

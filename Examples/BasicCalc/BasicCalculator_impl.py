@@ -86,3 +86,4 @@ def handle_expression(parser, node):
 def run_basic_calculator(parser, root):
     #print(root)
     print([str(t) for t in parser], '=', handle_expression(parser, root[0]))
+    return root

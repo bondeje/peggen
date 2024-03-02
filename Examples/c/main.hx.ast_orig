@@ -1,0 +1,215 @@
+AST:
+ProductionNode: root @0. Length: 112/31. Children: 1
+    Node: external_declaration{1:} @0. Length: 112/31. Children: 2
+        ProductionNode: external_declaration @0. Length: 62/15. Children: 1
+            ProductionNode: function_definition @0. Length: 62/15. Children: 1
+                ProductionNode: function_definition_rec @0. Length: 62/15. Children: 1
+                    Node: (declaration_specifier, ((declarator, declaration{0:}, compound_statement) / function_definition_rec)) @0. Length: 62/15. Children: 2
+                        ProductionNode: declaration_specifier @0. Length: 6/1
+                            ProductionNode: storage_class_specifier @0. Length: 6/1
+                                Node: static @0. Length: 6/1
+                        ProductionNode: function_definition_rec @1. Length: 55/14. Children: 1
+                            Node: (declaration_specifier, ((declarator, declaration{0:}, compound_statement) / function_definition_rec)) @1. Length: 55/14. Children: 2
+                                ProductionNode: declaration_specifier @1. Length: 6/1
+                                    ProductionNode: function_specifier @1. Length: 6/1
+                                        Node: inline @1. Length: 6/1
+                                ProductionNode: function_definition_rec @2. Length: 48/13. Children: 1
+                                    Node: (declaration_specifier, ((declarator, declaration{0:}, compound_statement) / function_definition_rec)) @2. Length: 48/13. Children: 2
+                                        ProductionNode: declaration_specifier @2. Length: 3/1
+                                            ProductionNode: type_specifier @2. Length: 3/1
+                                                Node: int @2. Length: 3/1
+                                        ProductionNode: function_definition_rec @3. Length: 44/12. Children: 1
+                                            Node: (declaration_specifier, ((declarator, declaration{0:}, compound_statement) / function_definition_rec)) @3. Length: 44/12. Children: 2
+                                                ProductionNode: declaration_specifier @3. Length: 7/1
+                                                    ProductionNode: function_specifier @3. Length: 7/1
+                                                        Node: __cdecl @3. Length: 7/1
+                                                Node: (declarator, declaration{0:}, compound_statement) @4. Length: 36/11. Children: 3
+                                                    ProductionNode: declarator @4. Length: 17/6. Children: 1
+                                                        Node: (pointer{0:1}, direct_declarator) @4. Length: 17/6. Children: 2
+                                                            ProductionNode: direct_declarator @4. Length: 17/6. Children: 1
+                                                                Node: ((identifier / ((, declarator, ))), (array_declarator / function_declarator){0:}) @4. Length: 17/6. Children: 2
+                                                                    ProductionNode: identifier @4. Length: 4/1
+                                                                        Node: [a-zA-Z_]\w* @4. Length: 4/1
+                                                                    Node: (array_declarator / function_declarator){0:} @5. Length: 13/5. Children: 1
+                                                                        ProductionNode: function_declarator @5. Length: 13/5. Children: 1
+                                                                            Node: ((, parameter_type_list{0:1}, )) @5. Length: 13/5. Children: 3
+                                                                                Node: ( @5. Length: 1/1
+                                                                                Node: parameter_type_list{0:1} @6. Length: 10/3. Children: 1
+                                                                                    ProductionNode: parameter_type_list @6. Length: 10/3. Children: 1
+                                                                                        Node: (parameter_list, (,, ...){0:1}) @6. Length: 10/3. Children: 2
+                                                                                            ProductionNode: parameter_list @6. Length: 10/3. Children: 1
+                                                                                                Node: ,.parameter_declaration @6. Length: 10/3. Children: 1
+                                                                                                    ProductionNode: parameter_declaration @6. Length: 10/3. Children: 1
+                                                                                                        Node: (declaration_specifier, (((declarator / abstract_declarator), &(, / ))) / parameter_declaration){0:1}) @6. Length: 10/3. Children: 2
+                                                                                                            ProductionNode: declaration_specifier @6. Length: 4/1
+                                                                                                                ProductionNode: type_specifier @6. Length: 4/1
+                                                                                                                    Node: char @6. Length: 4/1
+                                                                                                            Node: (((declarator / abstract_declarator), &(, / ))) / parameter_declaration){0:1} @7. Length: 5/2. Children: 1
+                                                                                                                Node: ((declarator / abstract_declarator), &(, / ))) @7. Length: 5/2. Children: 1
+                                                                                                                    ProductionNode: declarator @7. Length: 5/2. Children: 1
+                                                                                                                        Node: (pointer{0:1}, direct_declarator) @7. Length: 5/2. Children: 2
+                                                                                                                            Node: pointer{0:1} @7. Length: 2/1
+                                                                                                                                ProductionNode: pointer @7. Length: 2/1
+                                                                                                                                    Node: (*, (type_qualifier / attribute_specifier){0:}){1:} @7. Length: 2/1
+                                                                                                                                        Node: (*, (type_qualifier / attribute_specifier){0:}) @7. Length: 2/1
+                                                                                                                                            Node: * @7. Length: 1/1
+                                                                                                                            ProductionNode: direct_declarator @8. Length: 3/1
+                                                                                                                                Node: ((identifier / ((, declarator, ))), (array_declarator / function_declarator){0:}) @8. Length: 3/1
+                                                                                                                                    ProductionNode: identifier @8. Length: 3/1
+                                                                                                                                        Node: [a-zA-Z_]\w* @8. Length: 3/1
+                                                                                Node: ) @9. Length: 1/1
+                                                    ProductionNode: compound_statement @10. Length: 19/5. Children: 1
+                                                        Node: ({, block_item{0:}, }) @10. Length: 19/5. Children: 3
+                                                            Node: { @10. Length: 1/1
+                                                            Node: block_item{0:} @11. Length: 10/3. Children: 1
+                                                                ProductionNode: block_item @11. Length: 10/3. Children: 1
+                                                                    ProductionNode: statement @11. Length: 10/3. Children: 1
+                                                                        ProductionNode: jump_statement @11. Length: 10/3. Children: 1
+                                                                            Node: (((goto, identifier) / continue / break / (return, expression{0:1})), ;) @11. Length: 10/3. Children: 2
+                                                                                Node: (return, expression{0:1}) @11. Length: 8/2. Children: 2
+                                                                                    Node: return @11. Length: 6/1
+                                                                                    Node: expression{0:1} @12. Length: 1/1
+                                                                                        ProductionNode: expression @12. Length: 1/1
+                                                                                            Node: ,.assignment_expression @12. Length: 1/1
+                                                                                                ProductionNode: assignment_expression @12. Length: 1/1
+                                                                                                    Node: ((unary_expression, assignment_operator){0:}, conditional_expression) @12. Length: 1/1
+                                                                                                        ProductionNode: conditional_expression @12. Length: 1/1
+                                                                                                            Node: (logOR_expression, (?, expression, :, logOR_expression){0:}) @12. Length: 1/1
+                                                                                                                ProductionNode: logOR_expression @12. Length: 1/1
+                                                                                                                    Node: (logAND_expression, (||, logAND_expression){0:}) @12. Length: 1/1
+                                                                                                                        ProductionNode: logAND_expression @12. Length: 1/1
+                                                                                                                            Node: (OR_expression, (&&, OR_expression){0:}) @12. Length: 1/1
+                                                                                                                                ProductionNode: OR_expression @12. Length: 1/1
+                                                                                                                                    Node: (XOR_expression, (|, XOR_expression){0:}) @12. Length: 1/1
+                                                                                                                                        ProductionNode: XOR_expression @12. Length: 1/1
+                                                                                                                                            Node: (AND_expression, (^, AND_expression){0:}) @12. Length: 1/1
+                                                                                                                                                ProductionNode: AND_expression @12. Length: 1/1
+                                                                                                                                                    Node: (equality_expression, (&, equality_expression){0:}) @12. Length: 1/1
+                                                                                                                                                        ProductionNode: equality_expression @12. Length: 1/1
+                                                                                                                                                            Node: (relational_expression, ((== / !=), relational_expression){0:}) @12. Length: 1/1
+                                                                                                                                                                ProductionNode: relational_expression @12. Length: 1/1
+                                                                                                                                                                    Node: (shift_expression, ((< / > / <= / >=), shift_expression){0:}) @12. Length: 1/1
+                                                                                                                                                                        ProductionNode: shift_expression @12. Length: 1/1
+                                                                                                                                                                            Node: (additive_expression, ((<< / >>), additive_expression){0:}) @12. Length: 1/1
+                                                                                                                                                                                ProductionNode: additive_expression @12. Length: 1/1
+                                                                                                                                                                                    Node: (multiplicative_expression, ((+ / -), multiplicative_expression){0:}) @12. Length: 1/1
+                                                                                                                                                                                        ProductionNode: multiplicative_expression @12. Length: 1/1
+                                                                                                                                                                                            Node: (cast_expression, ((* / / / %), cast_expression){0:}) @12. Length: 1/1
+                                                                                                                                                                                                ProductionNode: cast_expression @12. Length: 1/1
+                                                                                                                                                                                                    Node: (((, type_name, )){0:}, unary_expression) @12. Length: 1/1
+                                                                                                                                                                                                        ProductionNode: unary_expression @12. Length: 1/1
+                                                                                                                                                                                                            ProductionNode: postfix_expression @12. Length: 1/1
+                                                                                                                                                                                                                Node: (postfix_expression_start, (get_member_expression / call_expression / namespace_access_expression / pointer_access_expression / ++ / --){0:}) @12. Length: 1/1
+                                                                                                                                                                                                                    ProductionNode: postfix_expression_start @12. Length: 1/1
+                                                                                                                                                                                                                        ProductionNode: primary_expression @12. Length: 1/1
+                                                                                                                                                                                                                            ProductionNode: constant @12. Length: 1/1
+                                                                                                                                                                                                                                ProductionNode: int_constant @12. Length: 1/1
+                                                                                                                                                                                                                                    Node: (([1-9]\d*)|(0(x|X)[A-Fa-f0-9]+)|(0[0-7]*))(((u|U)(l|L)?)|((l|L|LL|ll)(u|U)?))? @12. Length: 1/1
+                                                                                Node: ; @13. Length: 1/1
+                                                            Node: } @14. Length: 1/1
+        ProductionNode: external_declaration @15. Length: 50/16. Children: 1
+            ProductionNode: function_definition @15. Length: 50/16. Children: 1
+                ProductionNode: function_definition_rec @15. Length: 50/16. Children: 1
+                    Node: (declaration_specifier, ((declarator, declaration{0:}, compound_statement) / function_definition_rec)) @15. Length: 50/16. Children: 2
+                        ProductionNode: declaration_specifier @15. Length: 3/1
+                            ProductionNode: type_specifier @15. Length: 3/1
+                                Node: int @15. Length: 3/1
+                        Node: (declarator, declaration{0:}, compound_statement) @16. Length: 46/15. Children: 3
+                            ProductionNode: declarator @16. Length: 29/10. Children: 1
+                                Node: (pointer{0:1}, direct_declarator) @16. Length: 29/10. Children: 2
+                                    ProductionNode: direct_declarator @16. Length: 29/10. Children: 1
+                                        Node: ((identifier / ((, declarator, ))), (array_declarator / function_declarator){0:}) @16. Length: 29/10. Children: 2
+                                            ProductionNode: identifier @16. Length: 4/1
+                                                Node: [a-zA-Z_]\w* @16. Length: 4/1
+                                            Node: (array_declarator / function_declarator){0:} @17. Length: 25/9. Children: 1
+                                                ProductionNode: function_declarator @17. Length: 25/9. Children: 1
+                                                    Node: ((, parameter_type_list{0:1}, )) @17. Length: 25/9. Children: 3
+                                                        Node: ( @17. Length: 1/1
+                                                        Node: parameter_type_list{0:1} @18. Length: 22/7. Children: 1
+                                                            ProductionNode: parameter_type_list @18. Length: 22/7. Children: 1
+                                                                Node: (parameter_list, (,, ...){0:1}) @18. Length: 22/7. Children: 2
+                                                                    ProductionNode: parameter_list @18. Length: 22/7. Children: 1
+                                                                        Node: ,.parameter_declaration @18. Length: 22/7. Children: 2
+                                                                            ProductionNode: parameter_declaration @18. Length: 8/2. Children: 1
+                                                                                Node: (declaration_specifier, (((declarator / abstract_declarator), &(, / ))) / parameter_declaration){0:1}) @18. Length: 8/2. Children: 2
+                                                                                    ProductionNode: declaration_specifier @18. Length: 3/1
+                                                                                        ProductionNode: type_specifier @18. Length: 3/1
+                                                                                            Node: int @18. Length: 3/1
+                                                                                    Node: (((declarator / abstract_declarator), &(, / ))) / parameter_declaration){0:1} @19. Length: 4/1
+                                                                                        Node: ((declarator / abstract_declarator), &(, / ))) @19. Length: 4/1
+                                                                                            ProductionNode: declarator @19. Length: 4/1
+                                                                                                Node: (pointer{0:1}, direct_declarator) @19. Length: 4/1
+                                                                                                    ProductionNode: direct_declarator @19. Length: 4/1
+                                                                                                        Node: ((identifier / ((, declarator, ))), (array_declarator / function_declarator){0:}) @19. Length: 4/1
+                                                                                                            ProductionNode: identifier @19. Length: 4/1
+                                                                                                                Node: [a-zA-Z_]\w* @19. Length: 4/1
+                                                                            ProductionNode: parameter_declaration @21. Length: 12/4. Children: 1
+                                                                                Node: (declaration_specifier, (((declarator / abstract_declarator), &(, / ))) / parameter_declaration){0:1}) @21. Length: 12/4. Children: 2
+                                                                                    ProductionNode: declaration_specifier @21. Length: 4/1
+                                                                                        ProductionNode: type_specifier @21. Length: 4/1
+                                                                                            Node: char @21. Length: 4/1
+                                                                                    Node: (((declarator / abstract_declarator), &(, / ))) / parameter_declaration){0:1} @22. Length: 7/3. Children: 1
+                                                                                        Node: ((declarator / abstract_declarator), &(, / ))) @22. Length: 7/3. Children: 1
+                                                                                            ProductionNode: declarator @22. Length: 7/3. Children: 1
+                                                                                                Node: (pointer{0:1}, direct_declarator) @22. Length: 7/3. Children: 2
+                                                                                                    Node: pointer{0:1} @22. Length: 3/2. Children: 1
+                                                                                                        ProductionNode: pointer @22. Length: 3/2. Children: 1
+                                                                                                            Node: (*, (type_qualifier / attribute_specifier){0:}){1:} @22. Length: 3/2. Children: 2
+                                                                                                                Node: (*, (type_qualifier / attribute_specifier){0:}) @22. Length: 1/1
+                                                                                                                    Node: * @22. Length: 1/1
+                                                                                                                Node: (*, (type_qualifier / attribute_specifier){0:}) @23. Length: 2/1
+                                                                                                                    Node: * @23. Length: 1/1
+                                                                                                    ProductionNode: direct_declarator @24. Length: 4/1
+                                                                                                        Node: ((identifier / ((, declarator, ))), (array_declarator / function_declarator){0:}) @24. Length: 4/1
+                                                                                                            ProductionNode: identifier @24. Length: 4/1
+                                                                                                                Node: [a-zA-Z_]\w* @24. Length: 4/1
+                                                        Node: ) @25. Length: 1/1
+                            ProductionNode: compound_statement @26. Length: 17/5. Children: 1
+                                Node: ({, block_item{0:}, }) @26. Length: 17/5. Children: 3
+                                    Node: { @26. Length: 1/1
+                                    Node: block_item{0:} @27. Length: 10/3. Children: 1
+                                        ProductionNode: block_item @27. Length: 10/3. Children: 1
+                                            ProductionNode: statement @27. Length: 10/3. Children: 1
+                                                ProductionNode: jump_statement @27. Length: 10/3. Children: 1
+                                                    Node: (((goto, identifier) / continue / break / (return, expression{0:1})), ;) @27. Length: 10/3. Children: 2
+                                                        Node: (return, expression{0:1}) @27. Length: 8/2. Children: 2
+                                                            Node: return @27. Length: 6/1
+                                                            Node: expression{0:1} @28. Length: 1/1
+                                                                ProductionNode: expression @28. Length: 1/1
+                                                                    Node: ,.assignment_expression @28. Length: 1/1
+                                                                        ProductionNode: assignment_expression @28. Length: 1/1
+                                                                            Node: ((unary_expression, assignment_operator){0:}, conditional_expression) @28. Length: 1/1
+                                                                                ProductionNode: conditional_expression @28. Length: 1/1
+                                                                                    Node: (logOR_expression, (?, expression, :, logOR_expression){0:}) @28. Length: 1/1
+                                                                                        ProductionNode: logOR_expression @28. Length: 1/1
+                                                                                            Node: (logAND_expression, (||, logAND_expression){0:}) @28. Length: 1/1
+                                                                                                ProductionNode: logAND_expression @28. Length: 1/1
+                                                                                                    Node: (OR_expression, (&&, OR_expression){0:}) @28. Length: 1/1
+                                                                                                        ProductionNode: OR_expression @28. Length: 1/1
+                                                                                                            Node: (XOR_expression, (|, XOR_expression){0:}) @28. Length: 1/1
+                                                                                                                ProductionNode: XOR_expression @28. Length: 1/1
+                                                                                                                    Node: (AND_expression, (^, AND_expression){0:}) @28. Length: 1/1
+                                                                                                                        ProductionNode: AND_expression @28. Length: 1/1
+                                                                                                                            Node: (equality_expression, (&, equality_expression){0:}) @28. Length: 1/1
+                                                                                                                                ProductionNode: equality_expression @28. Length: 1/1
+                                                                                                                                    Node: (relational_expression, ((== / !=), relational_expression){0:}) @28. Length: 1/1
+                                                                                                                                        ProductionNode: relational_expression @28. Length: 1/1
+                                                                                                                                            Node: (shift_expression, ((< / > / <= / >=), shift_expression){0:}) @28. Length: 1/1
+                                                                                                                                                ProductionNode: shift_expression @28. Length: 1/1
+                                                                                                                                                    Node: (additive_expression, ((<< / >>), additive_expression){0:}) @28. Length: 1/1
+                                                                                                                                                        ProductionNode: additive_expression @28. Length: 1/1
+                                                                                                                                                            Node: (multiplicative_expression, ((+ / -), multiplicative_expression){0:}) @28. Length: 1/1
+                                                                                                                                                                ProductionNode: multiplicative_expression @28. Length: 1/1
+                                                                                                                                                                    Node: (cast_expression, ((* / / / %), cast_expression){0:}) @28. Length: 1/1
+                                                                                                                                                                        ProductionNode: cast_expression @28. Length: 1/1
+                                                                                                                                                                            Node: (((, type_name, )){0:}, unary_expression) @28. Length: 1/1
+                                                                                                                                                                                ProductionNode: unary_expression @28. Length: 1/1
+                                                                                                                                                                                    ProductionNode: postfix_expression @28. Length: 1/1
+                                                                                                                                                                                        Node: (postfix_expression_start, (get_member_expression / call_expression / namespace_access_expression / pointer_access_expression / ++ / --){0:}) @28. Length: 1/1
+                                                                                                                                                                                            ProductionNode: postfix_expression_start @28. Length: 1/1
+                                                                                                                                                                                                ProductionNode: primary_expression @28. Length: 1/1
+                                                                                                                                                                                                    ProductionNode: constant @28. Length: 1/1
+                                                                                                                                                                                                        ProductionNode: int_constant @28. Length: 1/1
+                                                                                                                                                                                                            Node: (([1-9]\d*)|(0(x|X)[A-Fa-f0-9]+)|(0[0-7]*))(((u|U)(l|L)?)|((l|L|LL|ll)(u|U)?))? @28. Length: 1/1
+                                                        Node: ; @29. Length: 1/1
+                                    Node: } @30. Length: 1/1

@@ -2,6 +2,14 @@ import os, re, time, copy
 from collections import deque
 from _io import TextIOWrapper
 
+# BIG TODOS
+# 1) 
+# I do not like the way that I handle is_SKIP_TOKEN in class Production._check_rule. 
+# I do not want to have to check is_SKIP_NODE in each production. 
+# This is mainly for the tokenizer, so a better way might be to use "skip_token" to
+# have it as a flag in Rule and then token_action checks for it and skips as needed
+# this might clean up the code but would add memory to Rule and require some refactoring
+
 SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
@@ -195,7 +203,7 @@ PGEN_STATE_WORD = 2
 #once initialized, Tokens should not really be changed except by the lexer
 class Token:
     __slots__ = ('string', 'start', 'end', 'line', 'col', '_hash')
-    def __init__(self, string, start, end, line, col):
+    def __init__(self, string, start, end, line = 0, col = 0):
         self.string = string
         self.start = start
         self.end = end
@@ -210,6 +218,10 @@ class Token:
         return self._hash
     def __str__(self):
         return self.string[self.start:self.end]
+    def __getitem__(self, key):
+        if key < self.end - self.start:
+            return self.string[self.start + key]
+        raise ValueError(f"index out of bounds in token: {Token}")
 
 class Node:
     __slots__ = ("type", "length", 'children', 'rule', 'token_key', 'ntokens') # length and ntokens might be redundant. Have to check if PASS_NODE vs FAIL_NODE still makes sense
@@ -229,10 +241,11 @@ class Node:
     def __len__(self):
         return 0 if not self.children else len(self.children)
     def __str__(self):
-        if self.ntokens == 1:
-            return f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}"
-        elif self.ntokens > 1:
+        #print(self.children)
+        if self.children:
             return f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}. Children: {len(self.children)}"
+        else:
+            return f"{self.type}: {self.rule} @{self.token_key}. Length: {self.length}/{self.ntokens}"
         return 'NO NODE!'
     def traverse_action(self, ctxt):
         return True
@@ -251,22 +264,23 @@ class Node:
 #                    child.print(buffer, indent)
 #                indent.pop()
     
-class ProductionNode(Node):
-    __slots__ = tuple()
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.type = "ProductionNode"
-    def traverse_action(self, ctxt):
-        return self.rule.traverse_action(ctxt, self)
-    def build_action(self, ctxt):
-        return self.rule.build_action(ctxt, self)
+#class ProductionNode(Node):
+#    __slots__ = tuple()
+#    def __init__(self, *args):
+#        super().__init__(*args)
+#        self.type = "ProductionNode"
+#    def traverse_action(self, ctxt):
+#        return self.rule.traverse_action(ctxt, self)
+#    def build_action(self, ctxt):
+#        return self.rule.build_action(ctxt, self)
 
 FAIL_NODE = Node(None, 0, 0, 0, None) # this is a placeholder for an empty Node to indicate failures different from None
 LOOKAHEAD_NODE = Node(None, 0, 0, 1, None) # LOOKAHEAD_NODE should have is_SKIP_NODE return True. This is handled by class And._check_rule to properly skip it
 
 def make_SKIP_NODE(node):
-    node.rule = 0
+    node.rule = None
     node.length = max(node.length, 1)
+    #print("made skip node")
     return node
 
 def is_SKIP_NODE(node):
@@ -280,11 +294,12 @@ def skip_token(parser, node):
 def token_action(parser, node):
     if node is not FAIL_NODE: # a token was found
         #print("token found:", parser.tell())
-        if is_SKIP_NODE(node[0]):
+        #print("token (in token_action):",node, is_SKIP_NODE(node))
+        if is_SKIP_NODE(node):
             #print("skipping")
-            parser.skip_token(node[0])
+            parser.skip_token(node)
         else:
-            parser.add_token(node[0])
+            parser.add_token(node)
         parser.seek(-1, SEEK_CUR) # need to back up one token in order to ensure not erroneously moving the parser location forward
         #print("after token processed:", parser.tell())
     #else:
@@ -573,6 +588,7 @@ class List(DerivedRule):
             delim = self.delim.check(parser, disable_cache_check)
             if delim is FAIL_NODE:
                 break
+            node_list.append(delim)
             node = self.rule.check(parser, disable_cache_check)
             if node is FAIL_NODE:
                 # undo delim
@@ -617,24 +633,28 @@ class AnonymousProduction(DerivedRule):
         return self.rule.build(parser_generator)
     # shouldn't have to implemented _check_rule as this would be a grammar error if it still exists in generated parser
     
-def prod_action_default(ctxt, node): # ctxt is anything
+def build_action_default(ctxt, node): # ctxt is anything
     return node
 
-PROD_ACTION_DEFAULT = f"prod_action_default"
+BUILD_ACTION_DEFAULT = "build_action_default"
 
+def traverse_action_default(ctxt, node):
+    return True
+
+TRAVERSE_ACTION_DEFAULT = "None"
+#UNESCAPED_RULES = []
 class Production(AnonymousProduction):
+    #UNESCAPED_RULES = [StringRule, RegexRule, ]
     __slots__ = ("build_action", "build_action_name", "traverse_action", "traverse_action_name")
-    def __init__(self, rule=None, name=None, build_action = None, build_action_name = PROD_ACTION_DEFAULT, traverse_action = None, traverse_action_name = PROD_ACTION_DEFAULT):
+    def __init__(self, rule=None, name=None, build_action = None, traverse_action = None):
         super().__init__(rule)
         self._id = name
-        if build_action is not None:
-            build_action_name = str(build_action)
+        if build_action is None:
+            build_action = build_action_default
         self.build_action = build_action
-        self.build_action_name = build_action_name
-        if traverse_action is not None:
-            traverse_action_name = str(traverse_action)
+        if traverse_action is None:
+            traverse_action = traverse_action_default
         self.traverse_action = traverse_action
-        self.traverse_action_name = traverse_action_name
     def build(self, parser_generator):
         try:
             resolved_rule = self.rule.build(parser_generator)
@@ -645,17 +665,36 @@ class Production(AnonymousProduction):
         #print(repr(self.build_action_name))
         
         if resolved_rule is None:
-            return f"RegexRule(\"{self.rule._id}\"), \"{self._id}\", {self.build_action_name}"
+            s = f"RegexRule(\"{self.rule._id}\"), \"{self._id}\""
         else:
-            return f"{resolved_rule}, \"{self._id}\", {self.build_action_name}"
-        
+            s = f"{resolved_rule}, \"{self._id}\""
+        if self.build_action is not None:
+            s += f", {self.build_action}"
+        else:
+            s += ", None"
+        if self.traverse_action is not None:
+            s += f", {self.traverse_action}"
+        return s
+    UNESCAPED_RULES = None
     def _check_rule(self, parser, token_key, disable_cache_check = False):
         #print("disable check:", disable_cache_check)
         #print("production:", self, '\n', self.rule)
         node = self.rule.check(parser, disable_cache_check)
         if node is not FAIL_NODE:
-            return self.build_action(parser, ProductionNode(self, node.token_key, node.ntokens, node.length, [node]))
+            #print(f"succes with {self} ({node.rule}) at {token_key}")
+            #return self.build_action(parser, ProductionNode(self, node.token_key, node.ntokens, node.length, [node]))
+            
+            if not is_SKIP_NODE(node):
+                #if not isinstance(node.rule, Production):
+                if not isinstance(node.rule, Production.UNESCAPED_RULES):
+                    Node.__init__(node, self, node.token_key, node.ntokens, node.length, node.children)
+                else:
+                    node = Node(self, node.token_key, node.ntokens, node.length, [node])
+
+            #print(f"\tfinal node {node}")
+            return self.build_action(parser, node)
         return node
+Production.UNESCAPED_RULES = (Production, StringRule, RegexRule)
 
 class NegativeLookahead(DerivedRule):
     INDICATOR = '!'
@@ -771,11 +810,7 @@ class ParserGenerator:
             self._keywords()
         elif string == "token":
             self.productions[string] = [self._get_named_production(string), string.upper()]
-            self.productions[string][0].build_action_name = f"token_action"
-        #elif string == "whitespace":
-        #    self.productions[string] = [self._get_named_production(string), string.upper()]
-        #    if self.productions[string][0].build_action_name == prod_build_action_def:
-        #        self.productions[string][0].build_action_name = f"skip_token"
+            self.productions[string][0].build_action = f"token_action" # this is a little hacky
         elif stopped == '':
             self.state = PGEN_STATE_END
             return
@@ -826,7 +861,10 @@ class ParserGenerator:
     def _read_word(self):
         return self.contents.read_until_char(WORD, complement = True)[0]
     def _read_action(self):
-        return self.contents.read_regex(ACTION_REGEX)
+        action = self.contents.read_regex(ACTION_REGEX)
+        if action:
+            return action
+        return None
     
     def _get_export(self):
         self._skip_punctuator(PROD_DEF)
@@ -864,7 +902,7 @@ class ParserGenerator:
         puncs = self._get_comma_separated_list()
         for punc in puncs:
             self.punctuators[punc] = [StringRule(punc), '_'.join(["PUNC"] + [str(ord(c)) for c in punc])]
-        self.productions["punctuator"] = [Production(RegexRule('|'.join('(' + simple_string_to_regex(s) + ')' for s in puncs)), "punctuator"), "PUNCTUATOR"]
+        self.productions["punctuator"] = [Production(RegexRule('|'.join('(' + simple_string_to_regex(s) + ')' for s in puncs)), "punctuator", BUILD_ACTION_DEFAULT, TRAVERSE_ACTION_DEFAULT), "PUNCTUATOR"]
 
     def _keywords(self):
         self._skip_punctuator(PROD_DEF)
@@ -872,7 +910,7 @@ class ParserGenerator:
         keys = self._get_comma_separated_list()
         for key in keys:
             self.keywords[key] = [StringRule(key), key.upper()]
-        self.productions["keyword"] = [Production(RegexRule('|'.join('(' + simple_string_to_regex(s) + ')' for s in keys)), "keyword"), "KEYWORD"]
+        self.productions["keyword"] = [Production(RegexRule('|'.join('(' + simple_string_to_regex(s) + ')' for s in keys)), "keyword", BUILD_ACTION_DEFAULT, TRAVERSE_ACTION_DEFAULT), "KEYWORD"]
 
     def _get_term_nonterm(self):
         c = self.contents.peek(1)
@@ -1010,7 +1048,7 @@ class ParserGenerator:
         #print(term_stack)            
         return BINARY_OP_RULES[op_stack.pop()](terms)
 
-    def _get_production(self, name = None, build_action = None):
+    def _get_production(self, name = None, build_action = None, traverse_action = None):
         binary_ops = deque([])
         terms_nonterms = deque([])
         #print("getting production", production_obj)
@@ -1035,24 +1073,33 @@ class ParserGenerator:
         rule = self._reorg_production(binary_ops, terms_nonterms)
         #print(f"production {name}:", type(rule))
         if name is not None:
-            return Production(rule, name, build_action)
+            return Production(rule, name, build_action, traverse_action)
         return AnonymousProduction(rule)
         
     def _get_named_production(self, name):
         #print("handling named production:", production_obj)
         c = self.contents.peek(1)
-        build_action = None
+        build_action = BUILD_ACTION_DEFAULT
+        traverse_action = TRAVERSE_ACTION_DEFAULT
         if c == TRANSFORM_OPEN:
             self.contents.read()
             self._skip_whitespace()
             #build_action = self._read_word()
             build_action = self._read_action()
+            if not build_action:
+                build_action = BUILD_ACTION_DEFAULT
             #print("found action:", build_action)
-            self.contents.read_until_char(')', include = True)
+            s, c = self.contents.read_until_char(',)', include = True)
+            if c == ',':
+                self._skip_whitespace()
+                traverse_action = self._read_action()
+                if not traverse_action:
+                    traverse_action = TRAVERSE_ACTION_DEFAULT
+                self.contents.read_until_char(',)', include = True)
             self._skip_whitespace()
         self._skip_punctuator(PROD_DEF)
         self._skip_whitespace()
-        return self._get_production(name, build_action)
+        return self._get_production(name, build_action, traverse_action)
     
     def resolve_name(self, _id):
         if _id in self.punctuators:
@@ -1072,6 +1119,11 @@ class ParserGenerator:
         parser_file = []
         all_string = []
         #enums = [f"{self.list_name} = [-1 for it in range({self._enum_ct})]"]
+        if not "root" in self.productions:
+            print("root production not provided.")
+            return
+        auto_traverse = self.productions["root"][0].traverse_action is not TRAVERSE_ACTION_DEFAULT
+        #print(auto_traverse)
 
         # declare and define the punctuators and keywords first
         for k, v in self.punctuators.items():
@@ -1097,7 +1149,7 @@ class ParserGenerator:
             file_out.write(f"""\n
 class {self.export}Parser(Parser):
     def __init__(self, string, *args, **kwargs):
-        super().__init__(string, TOKEN, ROOT, *args, **kwargs)
+        super().__init__(string, TOKEN, ROOT, *args, auto_traverse={auto_traverse}, **kwargs)
 """)
             all_string.append(f'"{self.export}Parser"')
             file_out.write(f"__all__ = [{','.join(all_string)}]\n")
@@ -1134,20 +1186,21 @@ class {self.export}Parser(Parser):
         with open(filename, 'r') as file_in:
             self.from_string(StringSource(file_in.read()))
 
-def default_traverse_action(ctxt, node):
+def traverse_action_print(ctxt, node):
     level = ctxt[1].pop()
     if node.ntokens:
         ctxt[0].append(DEFAULT_INDENTATION * level + str(node))
     for child in node:
         ctxt[1].append(level + 1)
 
-# ABC, any parser will inherit from this
+# any parser will inherit from this
 class Parser:
-    def __init__(self, string, token_rule, root_rule, line_offset = 0, col_offset = 0, lazy_parse = False, logfile = None):
+    def __init__(self, string, token_rule, root_rule, auto_traverse = False, line_offset = 0, col_offset = 0, lazy_parse = False, logfile = None):
         self.token_rule = token_rule
         self.root_rule = root_rule
         self._loc = 0 # this is the token_key number
         self.tokens = [Token(string, 0, len(string), line_offset, col_offset)] # offsets in line and column in case parsing a template string in the middle of a file
+        self.auto_traverse = auto_traverse
         self.longest_rule = []
         self.longest_loc = 0
         self.disable_cache_check = False
@@ -1225,6 +1278,7 @@ class Parser:
         self.disable_cache_check = True
         #print("_gen_next_token:", key, self._loc)
         res = self.token_rule.check(self, disable_cache_check = True)
+        #print("result of token:", res, res[0])
         #print(res[0], is_SKIP_NODE(res[0]))
         #if not is_SKIP_NODE(res[0]):
             #print("next token:", repr(str(self.tokens[res.token_key])), " - key/loc:", key, self._loc)
@@ -1248,6 +1302,8 @@ class Parser:
                 if len(self.tokens[-1]) == 0 or not self._gen_next_token(key):
                     #print("breaking search")
                     break
+                #if len(self.tokens) > 1:
+                #    print("built token:", str(self.tokens[-2]))
         else:
             #print("disabled_check_cache")
             pass
@@ -1255,7 +1311,11 @@ class Parser:
         #    pass
         #print(self.tokens[key])
         #print(key, len(self.tokens))
-        return self.tokens[key]
+        try:
+            return self.tokens[key]
+        except IndexError as e:
+            print(key)
+            exit(0)
     def get_tokens(self, node):
         return [self[i] for i in range(node.token_key, node.token_key + node.ntokens)]
     def parse(self):
@@ -1272,6 +1332,9 @@ class Parser:
             print("parsing failed", self.longest_loc, repr(str(self.tokens[self.ast.ntokens-1])))
             #for rule in reversed(self.longest_rule):
             #    print(rule)
+        else:
+            if self.auto_traverse:
+                self.traverse()
 
         # recursively clear caches to reclaim memory
         #t = time.time()
@@ -1320,6 +1383,7 @@ class Parser:
                 stack = [self.ast]
                 while stack:
                     node = stack.pop()
+                    #print(node)
                     try:
                         traverse_action(ctxt, node)
                     except Exception as e:
@@ -1328,19 +1392,19 @@ class Parser:
                         raise e
                     for child in reversed(node):
                         stack.append(child)
-        else: # action is None and ctxt is ignored, use user defined actions on Productions. Skip those visited
+        else: # action is None, use user defined actions on Productions. Skip those visited
             if ctxt is None:
                 ctxt = self
             stack = [self.ast]
             while stack:
-                node = stack.popleft()
+                node = stack.pop()
                 if node.traverse_action(ctxt): # if traverse returns a non-False answer, continue traversal down node
                     for child in reversed(node):
                         stack.append(child)
     
     def print_ast(self):
         ctxt = [["AST:"], deque([0])]
-        self.traverse(default_traverse_action, ctxt)
+        self.traverse(traverse_action_print, ctxt)
         #out = []
         #self.ast.print(out)
         #print('\n'.join(out))
