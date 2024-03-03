@@ -861,6 +861,7 @@ def c_direct_abstract_declarator(parser, dir_abs_declrtr, type_):
         c_abstract_declarator(parser, dir_abs_declrtr[1], temp_type)
 
 def c_abstract_declarator(parser, abs_declrtr, type_):
+    #print(abs_declrtr)
     if abs_declrtr[0].rule is POINTER:
         c_pointers(parser, abs_declrtr[0], type_)
     else: # production is (pointer?, direct_abstract_declarator)
@@ -874,16 +875,16 @@ def c_parameter_list(parser, param_list, call_type):
     for i, param_decl in enumerate(param_list):
         if not (i & 1):
             decl_spec = DeclSpec()
-            #declrtr_opt = c_parameter_declaration(parser, node[0], decl_spec)[0]
-            declrtr_opt = extract_declaration_specifiers(parser, param_list[i], decl_spec, PARAMETER_DECLARATION)
+            c_declaration_specifiers(parser, param_decl[0], decl_spec)
             obj = Parameter()
             obj.from_DeclSpec(decl_spec)
+            declrtr_opt = param_decl[1]
             if declrtr_opt:
-                if declrtr_opt[0][0].rule is DECLARATOR:
-                    c_declarator(parser, declrtr_opt[0][0], obj)
+                if declrtr_opt[0].rule is DECLARATOR:
+                    c_declarator(parser, declrtr_opt[0], obj)
                     # TODO!!!! Per the standard (and ambiguity in the grammar) if the identifier here can be interpreted as a typedef name, then it is a typedef name. This needs to be reconciled
                 else: # is ABSTRACT_DECLARATOR
-                    c_abstract_declarator(parser, declrtr_opt[0][0], obj.type)
+                    c_abstract_declarator(parser, declrtr_opt[0], obj.type)
             if i == 0 and obj.type.is_compatible(VOID_TYPE):
                 if Nparam == 1:
                     break
@@ -923,7 +924,10 @@ def c_direct_declarator(parser, direct_declarator, obj):
         # first production is ('(', declarator, ')')
         # this would be an automatic allocated Obj
         temp_obj = Object([], None, Type(None, sub_declarator))
-        c_declarator(parser, direct_declarator[0][1], temp_obj)
+        # TODO: this is probably wrong, but it's unclear how GCC/Clang associate attributes in this case
+        for attr in direct_declarator[0][0]:
+            obj.attributes.append(parser.get_tokens(attr))
+        c_declarator(parser, direct_declarator[0][2], temp_obj)
         obj.identifier = temp_obj.identifer
     stack = []
     for array_or_func in direct_declarator[1]: # binding reverses these
@@ -946,27 +950,28 @@ def c_declarator(parser, declarator, obj):
 def c_initializer(parser, initializer, type_):
     print("c_initializer not yet implemented")
 
-def c_init_declarator(parser, init_declarator, obj):
+def c_init_declarator(parser, init_declarator, obj, type_inference):
     #print(init_declarator)
     for attr_spec in init_declarator[1]:
         obj.attributes.append(parser.get_tokens(attr_spec))
     c_declarator(parser, init_declarator[0], obj)
     if init_declarator[2]: # an initializer was provided
+        #print(init_declarator[2])
         type_initer = Type()
-        c_initializer(parser, init_declarator[2][1], type_initer)
+        c_initializer(parser, init_declarator[2][0][1], type_initer)
         # check for type compatibility between initializer and object
         # if not obj.type.is_compatible(type_initer)
         #     raise ValueError(f"{obj.type} is not compatible with {type_initer}" )
 
-def c_init_declarator_list(parser, init_declarator_list, obj_list):
+def c_init_declarator_list(parser, init_declarator_list, obj_list, type_inference):
     #print(init_declarator_list)
     i = 0
     N = len(init_declarator_list)
     while i < N - 1:
         obj_list.append(copy.copy(obj_list[i]))
-        c_init_declarator(parser, init_declarator_list[i], obj_list[i])
+        c_init_declarator(parser, init_declarator_list[i], obj_list[i], type_inference)
         i += 1
-    c_init_declarator(parser, init_declarator_list[i], obj_list[i])
+    c_init_declarator(parser, init_declarator_list[i], obj_list[i], type_inference)
 
 def c_atomic_type_specifier(parser, atomic_type_spec, decl_spec):
     print("c_atomic_type_specifier not yet implemented")
@@ -996,16 +1001,31 @@ def c_struct_declarator_list(parser, struct_declrtr_list, member_list):
         i += 1
     c_struct_declarator(parser, struct_declrtr_list[2*i], member_list[i])
 
+def c_specifier_qualifier_list(parser, spec_qual, decl_spec):
+    for qual_attr in spec_qual[0]:
+        if qual_attr.rule is ATTRIBUTE_SPECIFIER:
+            decl_spec.attrs.append(parser.get_tokens(qual_attr))
+        else:
+            decl_spec.qualifiers.append(parser.get_tokens(qual_attr)[0])
+    c_type_specifier(parser, spec_qual[1], decl_spec)
+    for qual_attr in spec_qual[2]:
+        if qual_attr.rule is ATTRIBUTE_SPECIFIER:
+            decl_spec.attrs.append(parser.get_tokens(qual_attr))
+        else:
+            decl_spec.qualifiers.append(parser.get_tokens(qual_attr)[0])
+
 def c_struct_declaration(parser, struct_decl, member_list):
     #print(struct_decl)
     if struct_decl[0].rule is STATIC_ASSERT_DECLARATION:
         c_static_assert_declaration(parser, struct_decl[0])
     else:
         decl_spec = DeclSpec()
-        node = extract_declaration_specifiers(parser, struct_decl[0], decl_spec, MEMBER_DECLARATION)
+        c_specifier_qualifier_list(parser, struct_decl[0], decl_spec)
+        for qual_attr in struct_decl[2]:
+            decl_spec.attrs.append(parser.get_tokens(qual_attr))
         member_list[0].from_DeclSpec(decl_spec)
-        if node[0]:
-            c_struct_declarator_list(parser, node[0][0], member_list)
+        if struct_decl[1]:
+            c_struct_declarator_list(parser, struct_decl[1][0], member_list)
 
 def c_struct_or_union_specifier(parser, struct_or_union_spec, decl_spec):
     if struct_or_union_spec[0].rule is STRUCT:
@@ -1067,9 +1087,10 @@ def c_typedef_name(parser, typedef_name, decl_spec):
     decl_spec.specifiers = TypeDef(id_, parser.scope.get_typedef(id_))
 
 class DeclSpec:
-    __slots__ = ("typedef_tf", "storage_class", "specifiers", "qualifiers", "func_spec", "attrs")
-    def __init__(self, typedef_tf = False, storage_class = None, specifiers = None, qualifiers = None, func_spec = None, attrs = None):
+    __slots__ = ("typedef_tf", "auto_tf", "storage_class", "specifiers", "qualifiers", "func_spec", "attrs")
+    def __init__(self, typedef_tf = False, auto_tf = False, storage_class = None, specifiers = None, qualifiers = None, func_spec = None, attrs = None):
         self.typedef_tf = typedef_tf
+        self.auto_tf = auto_tf
         self.storage_class = storage_class if storage_class is not None else []
         # TODO: consider changing the specifiers to an instance of BaseSubType
         self.specifiers = specifiers
@@ -1088,67 +1109,78 @@ class DeclSpec:
 \tattributes: {' '.join(str(t) for t in self.attrs) if self.attrs else "None"}
 """
 
-def ext_decl_spec_next(node):
-    return node[1]
+def c_multi_type(parser, multi_type_plus, bst):
+    if multi_type_plus[0].rule is SHORT or multi_type_plus[0].rule is LONG:
+        bst.tokens.append(SIGNED_TOKEN)
+    elif 'int' in str(parser.get_tokens(multi_type_plus[0])[0]):
+        bst.tokens.append(SIGNED_TOKEN)
+    bst.tokens.extend(parser.get_tokens(multi_type_plus))
+    if multi_type_plus[-1].rule is LONG or multi_type_plus[-1].rule is SHORT:
+        bst.tokens.append(INT_TOKEN)
 
-def extract_declaration_specifiers(parser, node, decl_spec, recursive_rule, get_next_node = ext_decl_spec_next):
-    while node.rule is recursive_rule:
-        # in C version, need to properly release all these nodes as they are reorg'd
-        #print(node, len(node))
-        ds = node[0][0]
-        #print(ds.rule, ds[0].rule)
-        if ds.rule == STORAGE_CLASS_SPECIFIER:
-            if ds[0].rule is TYPEDEF:
-                decl_spec.typedef_tf = True
-            else:
-                decl_spec.storage_class.extend(parser.get_tokens(ds[0]))
-        elif ds.rule is FUNCTION_SPECIFIER:
-            decl_spec.func_spec.extend(parser.get_tokens(ds[0]))
-        elif ds.rule is ATTRIBUTE_SPECIFIER:
-            decl_spec.attrs.append(parser.get_tokens(ds[0]))
-        elif ds.rule is TYPE_SPECIFIER:
-            ds = ds[0]
-            if ds.rule is ATOMIC_TYPE_SPECIFIER:
-                c_atomic_type_specifier(parser, ds, decl_spec)
-            elif ds.rule is STRUCT_OR_UNION_SPECIFIER:
-                c_struct_or_union_specifier(parser, ds, decl_spec)
-            elif ds.rule is ENUM_SPECIFIER:
-                c_enum_specifier(parser, ds, decl_spec)
-            elif ds.rule is TYPEDEF_NAME:
-                c_typedef_name(parser, ds, decl_spec)
-            else:
-                if decl_spec.specifiers is None:
-                    decl_spec.specifiers = BaseSubType(parser.get_tokens(ds))
-                else:
-                    decl_spec.specifiers.tokens.extend(parser.get_tokens(ds))
-        elif ds.rule is TYPE_QUALIFIER:
-            decl_spec.qualifiers.extend(parser.get_tokens(ds[0]))
-        else:
-            raise ValueError(f"declaration specifier of type {ds.rule} is not recognized")
-        node = get_next_node(node)
-    
-    return node
+def c_type_specifier(parser, type_spec, decl_spec):
+    type_spec = type_spec[0]
+    if type_spec.rule is ATOMIC_TYPE_SPECIFIER:
+        c_atomic_type_specifier(parser, type_spec, decl_spec)
+    elif type_spec.rule is STRUCT_OR_UNION_SPECIFIER:
+        c_struct_or_union_specifier(parser, type_spec, decl_spec)
+    elif type_spec.rule is ENUM_SPECIFIER:
+        c_enum_specifier(parser, type_spec, decl_spec)
+    elif type_spec.rule is TYPEDEF_NAME:
+        c_typedef_name(parser, type_spec, decl_spec)
+    else:
+        decl_spec.specifiers = BaseSubType()
+        c_multi_type(parser, type_spec, decl_spec.specifiers)
 
-#def c_declaration_standard(parser, decl_std, decl_spec):
-#    return extract_declaration_specifiers(parser, decl_std, decl_spec, DECLARATION_STANDARD)
+def c_declaration_qualifier(parser, node, decl_spec):
+    node = node[0]
+    if node.rule is STORAGE_CLASS_SPECIFIER:
+        if node[0].rule is TYPEDEF:
+            decl_spec.typedef_tf = True
+        elif node[0].rule is AUTO:
+            decl_spec.auto_tf = True
+        elif node.ntokens == 1:
+            decl_spec.storage_class.append(parser.get_tokens(node)[0])
+    elif node.rule is TYPE_QUALIFIER:
+        decl_spec.qualifiers.append(parser.get_tokens(node)[0])
+    elif node.rule is FUNCTION_SPECIFIER:
+        decl_spec.func_spec.append(parser.get_tokens(node)[0])
+    else: # node.rule is ATTRIBUTE_SPECIFIER or node.rule is MSDECLSPEC or node.rule is ALIGNMENT_SPECIFIER:
+        decl_spec.attrs.append(parser.get_tokens(node))
+
+def c_declaration_specifiers(parser, node, decl_spec):
+    if node[0]:
+        for qual in node[0]:
+            c_declaration_qualifier(parser, qual, decl_spec)
+    if node[2]:
+        for qual in node[2]:
+            c_declaration_qualifier(parser, qual, decl_spec)
+    if node[1]:
+        c_type_specifier(parser, node[1], decl_spec)
+    elif not decl_spec.auto_tf: # handle case of 'auto' as type specifier
+        # TODO: really, I should not do this. The rule should have always been that if a declaration qualifier (declaration_specifier in standard parlance) is provided but not type_specifier, type_inference is implied
+        raise ValueError("'auto' storage class specifier required for type inference if no type specifier applied. Yes, it is stupid, blame C++11 and newer")
 
 def c_declaration(parser, node):
     #print("c_declaration:", node, '\n\t', node[0])
     obj_list = []
-    if node[0].rule is DECLARATION_STANDARD:
+    if node[0].rule is STATIC_ASSERT_DECLARATION:
+        c_static_assert_declaration(parser, node[0])
+    else:
+        type_inference = False
         decl_spec = DeclSpec()
-        #init_decl_list_opt = c_declaration_standard(parser, node[0], decl_spec)[0]
-        init_decl_list_opt = extract_declaration_specifiers(parser, node[0], decl_spec, DECLARATION_STANDARD)[0]
+        c_declaration_specifiers(parser, node[0], decl_spec)
+        type_inference = (not decl_spec.specifiers) and decl_spec.auto_tf
         if decl_spec.func_spec:
             obj_list.append(Callable())
         else:
             obj_list.append(Object())
         obj_list[0].from_DeclSpec(decl_spec)
-        if init_decl_list_opt:
-            c_init_declarator_list(parser, init_decl_list_opt[0], obj_list)
+        if node[1]:
+            c_init_declarator_list(parser, node[1][0], obj_list, type_inference)
+        elif not type_inference:
+            raise ValueError("type inference without providing initializer") # TODO: put location
         #print(init_decl_list, "Occupied" if init_decl_list else "Empty")
-    else:
-        c_static_assert_declaration(parser, node[0])
     #for obj in obj_list:
     #    print("new object:", str(obj))
 

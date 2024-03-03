@@ -332,6 +332,7 @@ class Rule:
     def _check_rule(self, parser, token_key, disable_cache_check = False):
         raise NotImplementedError(f"rule did not overload _check_rule(parser, token_key) for id {self._id}, type={type(self)}")
     def check(self, parser, disable_cache_check = False):
+        #print(self)
         #RULE_CHECKS[RULE_CHECK_NUM] += 1
         token_key = parser.tell()
         #print(f"checking rule: {self._id} at {token_key}...")
@@ -626,6 +627,20 @@ class Repeat(DerivedRule):
             return FAIL_NODE
         token_cur = parser.tell()
         return Node(self, token_key, token_cur - token_key, parser[token_cur].start - parser[token_key].start, node_list)
+    
+class Optional(DerivedRule):
+    __slots__ = ()
+    def __init__(self, rule):
+        super().__init__(rule)
+        self._id = f"{self}?"
+    def build(self, parser_generator):
+        return f"Optional({self.rule.build(parser_generator)})"
+    def _check_rule(self, parser, token_key, disable_cache_check = False):
+        child = []
+        node = self.rule.check(parser, disable_cache_check)
+        if node is not FAIL_NODE:
+            child.append(node)
+        return Node(self, token_key, node.ntokens, node.length, child)
     
 class AnonymousProduction(DerivedRule):
     __slots__ = tuple()
@@ -970,7 +985,8 @@ class ParserGenerator:
                 rule = Repeat(rule, 0, 0)
             elif c == '?':
                 self._skip_punctuator(c)
-                rule = Repeat(rule, 0, 1)
+                #rule = Repeat(rule, 0, 1)
+                rule = Optional(rule)
             elif c == '{':
                 self._skip_punctuator(c)
                 self._skip_whitespace()

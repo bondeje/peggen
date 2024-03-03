@@ -26,7 +26,7 @@ print(t, "seconds")
 #t = time.time() - t
 #print(t, "seconds")
 
-"""
+#"""
 for f in os.listdir('.\\clib'):
     if f.endswith('.hx'):
         fi = '.\\clib\\' + f
@@ -37,7 +37,7 @@ for f in os.listdir('.\\clib'):
         c.from_file(fi, file_out = fo, logfile = fl)
         t = time.time() - t
         print(t, "seconds")
-"""
+#"""
         
 #for t in peggen.TIMES:
 #    print("time: ", t/1e9, "seconds")

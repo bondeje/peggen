@@ -22,6 +22,7 @@ keyword:
 	'__cdecl', // msvc extension
 	'__clrcall', // msvc extension
 	'__declspec', // msvc declaration-specifier extensions
+	'__extension__', // gcc extension to silence -pedantic: https://gcc.gnu.org/onlinedocs/gcc/Alternate-Keywords.html
 	'__fastcall', // msvc extension
 	'__inline', // msvc extension
 	'__inline__',// gcc extension
@@ -38,6 +39,7 @@ keyword:
     '__attribute__',
 	'asm', // standard C extension (see Annex J). used by gcc, etc.
 	'auto', 
+	'bool', 
     'break', 
     'case', 
     'char', 
@@ -259,26 +261,9 @@ constant_expression:
 
 // DECLARATIONS
 
-typedef_opt:
-	'typedef'?
-
-c_declaration: // AMBIGUITY: This is the C version (+gcc/clang __attributes__), but trying to fix for typedef_name ambiguity. typedef is explicitly broken out from declaration_specifiers for ease of identification in traversal
-	 'typedef'?, declaration_specifier+, init_declarator_list?, ';'
-	\ static_assert_declaration
-
-//declaration(reorg_declaration):
 declaration:
-	  declaration_standard
+	  declaration_specifiers, init_declarator_list?, ';'
 	\ static_assert_declaration
-
-/* to get around the typedef_name (or enum_specifier) ambiguity, need a 
-   recursive production getting single declaration_specifier and first 
-   checking if the init_declarator_list, ';' is satisified and succeed before 
-   checking if the identifier is another declaration_specifier
-*/
-// for msattribute, see https://learn.microsoft.com/en-us/cpp/c-language/summary-of-declarations?view=msvc-170
-declaration_standard:
-	declaration_specifier, ((init_declarator_list?, ';') \ declaration_standard)
 
 // non_paren and paren_block to accommodate arbitrary gcc and msvc declaration specifier attribute syntax
 non_paren:
@@ -286,14 +271,6 @@ non_paren:
 	
 paren_block:
 	'(', non_paren*, paren_block?, non_paren*, ')'
-
-declaration_specifier:
-	  storage_class_specifier
-	\ type_qualifier
-	\ function_specifier
-	\ alignment_specifier
-	\ attribute_specifier // compiler declaration_specifier extensions: https://gcc.gnu.org/onlinedocs/gcc/Attribute-Syntax.html
-	\ type_specifier // should be last otherwise typedef_name->identifier is just going to screw shit up
 
 msattribute:
 	  '__asm'
@@ -308,6 +285,7 @@ msattribute:
 
 attribute_specifier: // gcc specific declaration_specifiers
 	'__attribute__', paren_block
+	\ '__extension__'
 
 init_declarator:
 	declarator, attribute_specifier*, ('=', initializer)?
@@ -322,11 +300,11 @@ storage_class_specifier:
 	\ 'static'
 	\ '_Thread_local'
 	\ 'typedef'
-	\ msdeclspec
 
 msdeclspec: // msvc specific declaration_specifiers
 	'__declspec', '(', identifier*,')'
-	
+
+/*
 type_specifier:
 	  'void'
 	\ 'char'
@@ -347,41 +325,27 @@ type_specifier:
 	\ struct_or_union_specifier
 	\ enum_specifier
 	\ typedef_name
-	
+*/ 
+
 struct_or_union_specifier:
 	struct_or_union, ((identifier?, '{', struct_declaration+, '}') \ identifier)
 
 struct_or_union:
 	'struct' \ 'union'
 
-// struct_declaration_list does not need to exist
-
-/* // AMBIGUITY: see specifier_qualifier_list
-struct_declaration: 
-	  specifier_qualifier_list, struct_declarator_list?, ';'
-	\ static_assert_declaration
-*/
-
 struct_declaration:
-	member_declaration \ static_assert_declaration
+	  specifier_qualifier_list, struct_declarator_list?, attribute_specifier*, ';'
+	\ static_assert_declaration
 
-member_declaration: // add transform which reorders so that 'const' is left-associative, which ensures appropriate interpretation when traversing AST
-	specifier_qualifier, ((struct_declarator_list?, ';') \ member_declaration)
-
-specifier_qualifier:
-	(type_qualifier \ type_specifier)
-
-// AMBIGUITY: C standard has type_specifier come first, but type_specifier has typedef_name->identifier which will succeed on any type_qualifier or type_specifier. type_qualifier must come first
-// however, this definition's use case is OK in type_name production since there is no ambiguity with abstract_declarators
-specifier_qualifier_list: 
-	specifier_qualifier+ // add transform which reorders so that 'const' is left-associative, which ensures appropriate interpretation when traversing AST
+specifier_qualifier_list:
+	(type_qualifier \ attribute_specifier)*, type_specifier, (type_qualifier \ attribute_specifier)*
 
 struct_declarator_list:
 	','.struct_declarator
 
 struct_declarator:
-	  declarator
-	\ declarator?, ':', constant_expression
+	  declarator?, ':', constant_expression
+	\ declarator
 
 enum_specifier:
 	'enum', ((identifier?, '{', enumerator_list, ','?, '}') \ identifier)
@@ -406,6 +370,7 @@ type_qualifier:
 function_specifier:
 	  'inline' 
 	\ '__inline__' // gcc extension
+	\ '__inline' // alternate gcc bullshit
 	\ '_Noreturn' 
 	
 alignment_specifier:
@@ -415,7 +380,7 @@ declarator:
 	pointer?, direct_declarator // forward declare direct_declarator
 
 direct_declarator: 
-	(msattribute*, identifier \ '(', declarator, ')'), (array_declarator \ function_declarator)*
+	(msattribute*, identifier \ '(', attribute_specifier*, declarator, ')'), (array_declarator \ function_declarator)*
 
 array_declarator:
 	'[', 'static'?, type_qualifier*, 'static'?, (assignment_expression \ '*')?, ']' // static and assignment_expression cannot be together
@@ -438,13 +403,51 @@ parameter_type_list:
 parameter_list:
 	','.parameter_declaration
 
-/*
-parameter_declaration: // AMBIGUITY: This is the C version, but it has an ambiguity in declaration_specifiers->type_specifier->typedef_name->identifier
-	declaration_specifiers, (abstract_declarator \ declarator)?
-*/
+// the real requirement is that the every parameter declaration must have at least 1 type specifier (auto will not work here). 
+// A typedef would appear as the sole type specifier. If a typedef is found, the identifier in the declarator must be the variable identifier
+// say we have declaration_specifiers that do not have type specifiers and type specifiers are reworked to separate those that may be more than one token:
+multi_type: // these may or may not appear alone, but if they are accompanied, they are accompanied by other keywords
+	  'char'
+	\ 'short'
+	\ 'int'
+	\ '__int8' // msvc extension
+	\ '__int16' // msvc extension
+	\ '__int32' // msvc extension
+	\ '__int64' // msvc extension
+	\ 'long'
+	\ 'float'
+	\ 'double'
+	\ '_Complex'
+	\ 'signed'
+	\ 'unsigned'
+	\ 'void'  // not really multi, but it makes type_specifier easier to have it here
+	\ '_Bool' // not really multi, but it makes type_specifier easier to have it here
+	\ 'bool'  // not really multi, but it makes type_specifier easier to have it here
+	
+type_specifier: // cannot be mixed with another type specifier
+	  multi_type+
+	\ atomic_type_specifier
+	\ struct_or_union_specifier
+	\ enum_specifier
+	\ typedef_name
 
-parameter_declaration: // This should remove AMBIGUITY by exiting on a declarator first. By second term being optional, the recursion can terminate
-	declaration_specifier, ((( declarator \ abstract_declarator), &(',' \ ')')) \ parameter_declaration)?
+declaration_qualifier:
+	  storage_class_specifier
+	\ type_qualifier
+	\ function_specifier
+	\ alignment_specifier
+	\ attribute_specifier // compiler declaration_specifier extensions: https://gcc.gnu.org/onlinedocs/gcc/Attribute-Syntax.html
+	\ msdeclspec
+
+declaration_specifiers:
+      declaration_qualifier*, type_specifier, declaration_qualifier*
+    \ declaration_qualifier+, type_specifier?, declaration_qualifier* 
+    \ declaration_qualifier*, type_specifier?, declaration_qualifier+
+
+	
+parameter_declaration:
+	declaration_specifiers, (declarator \ abstract_declarator)?
+
 
 identifier_list:
 	','.identifier
@@ -531,20 +534,8 @@ jump_statement:
 	(('goto', identifier) \ 'continue' \ 'break' \ ('return', expression?)), ';'
 
 // REMOVE declaration* for old-style K&R?
-
-
-
-// AMBIGUITY due to typedef_name
-// reorg_function_def rebuilds a successful node to match the AST syntax of standard C, which is much easier to traverse
-c_function_definition:
-	declaration_specifier+, declarator, declaration*, compound_statement
-
-//function_definition(reorg_function_def)
 function_definition:
-	function_definition_rec
-
-function_definition_rec:
-	declaration_specifier, ((declarator, declaration*, compound_statement) \ function_definition_rec)
+	declaration_specifiers, declarator, compound_statement
 
 non_line_end:
 	"[^\n]+"
